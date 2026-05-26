@@ -2018,7 +2018,7 @@ watch(extractProgress, async (val, oldVal) => {
 watch(hasResultContent, async (val, oldVal) => {
   if (val && !oldVal) {
     await nextTick();
-    document.getElementById('extract-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
   }
 });
 
