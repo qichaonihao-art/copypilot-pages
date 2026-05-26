@@ -2016,37 +2016,6 @@ onMounted(async () => {
 
 <template>
   <div class="site" :class="`theme-${pageTheme}`">
-    <header class="site-header">
-      <a class="logo" href="/" @click.prevent="navigate('/')">
-        <span class="logo-mark" aria-hidden="true">
-          <span class="logo-sheet logo-sheet-back"></span>
-          <span class="logo-sheet logo-sheet-front">
-            <span class="logo-play"></span>
-          </span>
-        </span>
-        <strong>{{ siteName }}</strong>
-      </a>
-      <nav class="desktop-nav" aria-label="主导航">
-        <a href="/" @click.prevent="navigate('/')">{{ uiText.nav[0] }}</a>
-        <a href="/video" @click.prevent="navigate('/video')">{{ uiText.nav[1] }}</a>
-        <a href="/text" @click.prevent="navigate('/text')">{{ uiText.nav[2] }}</a>
-        <a href="/image-text" @click.prevent="navigate('/image-text')">{{ uiText.nav[3] }}</a>
-        <a href="/article" @click.prevent="navigate('/article')">{{ uiText.nav[4] }}</a>
-      </nav>
-      <div class="header-actions">
-        <button class="language-button" @click="toggleLang">{{ lang === 'zh' ? 'EN' : '中文' }}</button>
-        <button v-if="!isPublicFreeMode" class="login-button" @click="authOpen = true">{{ authButtonText }}</button>
-      </div>
-    </header>
-
-    <nav v-if="!isLegalPage" class="mobile-nav" aria-label="手机导航">
-      <a href="/" @click.prevent="navigate('/')">{{ uiText.nav[0] }}</a>
-      <a href="/video" @click.prevent="navigate('/video')">{{ uiText.nav[1] }}</a>
-      <a href="/text" @click.prevent="navigate('/text')">{{ uiText.nav[2] }}</a>
-      <a href="/image-text" @click.prevent="navigate('/image-text')">{{ uiText.nav[3] }}</a>
-      <a href="/article" @click.prevent="navigate('/article')">{{ uiText.nav[4] }}</a>
-    </nav>
-
     <div v-if="authOpen && !isPublicFreeMode" class="auth-overlay" @click.self="authOpen = false">
       <section class="auth-panel">
         <button class="auth-close" @click="authOpen = false">×</button>
