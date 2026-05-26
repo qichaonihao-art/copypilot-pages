@@ -2665,7 +2665,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage" id="features" class="section">
+      <section v-if="!isLegalPage && !isHome" id="features" class="section">
         <div class="section-title center">
           <p class="eyebrow"><Sparkles :size="18" /> {{ uiText.featureEyebrow }}</p>
           <h2>{{ uiText.featureTitle }}</h2>
@@ -2679,7 +2679,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage" id="steps" class="section steps-section">
+      <section v-if="!isLegalPage && !isHome" id="steps" class="section steps-section">
         <div class="section-title center">
           <p class="eyebrow"><Check :size="18" /> {{ uiText.stepsEyebrow }}</p>
           <h2>{{ uiText.stepsTitle }}</h2>
@@ -2693,7 +2693,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage" id="faq" class="section">
+      <section v-if="!isLegalPage && !isHome" id="faq" class="section">
         <div class="section-title center faq-title">
           <h2>{{ uiText.faqTitle }}</h2>
           <p>{{ uiText.faqSubtitle }}</p>
@@ -2719,7 +2719,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage" class="section seo-section">
+      <section v-if="!isLegalPage && !isHome" class="section seo-section">
         <div class="section-title center">
           <p class="eyebrow"><Sparkles :size="18" /> {{ uiText.seoEyebrow }}</p>
           <h2>{{ uiText.seoTitle }}</h2>
@@ -2737,7 +2737,7 @@ onMounted(async () => {
       </section>
     </main>
 
-    <footer class="site-footer">
+    <footer v-if="!isHome" class="site-footer">
       <div>
         <strong>{{ siteName }}</strong>
         <p>{{ uiText.footerDesc }}</p>
