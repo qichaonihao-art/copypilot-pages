@@ -2008,17 +2008,40 @@ function resetResult() {
   articleRewriteLoading.value = false;
 }
 
+function smoothScrollTo(targetY, duration = 900) {
+  const startY = window.scrollY;
+  const distance = targetY - startY;
+  const startTime = performance.now();
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function step(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = easeInOutCubic(progress);
+    window.scrollTo(0, startY + distance * eased);
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
 watch(extractProgress, async (val, oldVal) => {
   if (val && !oldVal) {
     await nextTick();
-    document.getElementById('extract-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const el = document.getElementById('extract-progress');
+    if (el) smoothScrollTo(el.offsetTop - 20);
   }
 });
 
 watch(hasResultContent, async (val, oldVal) => {
   if (val && !oldVal) {
     await nextTick();
-    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    smoothScrollTo(document.documentElement.scrollHeight);
   }
 });
 
