@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import {
   BadgeCheck,
   Captions,
@@ -2008,6 +2008,20 @@ function resetResult() {
   articleRewriteLoading.value = false;
 }
 
+watch(extractProgress, async (val, oldVal) => {
+  if (val && !oldVal) {
+    await nextTick();
+    document.getElementById('extract-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
+watch(hasResultContent, async (val, oldVal) => {
+  if (val && !oldVal) {
+    await nextTick();
+    document.getElementById('extract-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
 onMounted(async () => {
   await loadMe();
   trackEvent('page_view', { path: currentPath.value });
@@ -2499,7 +2513,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="loading && extractProgress" class="result-section progress-section" aria-live="polite">
+      <section v-if="loading && extractProgress" id="extract-progress" class="result-section progress-section" aria-live="polite">
         <div class="progress-card">
           <div class="section-title center">
             <h2>{{ uiText.resultLabel }}</h2>
@@ -2517,7 +2531,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="hasResultContent" class="result-section">
+      <section v-if="hasResultContent" id="extract-result" class="result-section">
         <div class="result-card">
           <div class="section-title">
             <div>
