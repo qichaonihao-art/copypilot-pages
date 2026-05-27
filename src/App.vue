@@ -31,6 +31,7 @@ const articleView = ref('text');
 const articleTemplate = ref('clean');
 const articleDraftHtml = ref('');
 const articleRewriteLoading = ref(false);
+const videoTranscriptLoading = ref(false);
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -897,6 +898,7 @@ const shouldShowPublishedText = computed(() => {
 const copyBlockTitle = computed(() => {
   if (result.value?.transcriptSkipped) return '平台发布文案';
   if (isHome.value && result.value?.transcript) return '视频识别文案';
+  if (toolPage.value?.type === 'video' && result.value?.transcript) return '视频逐字稿';
   if (isHome.value) return '作品文案';
   if (toolPage.value?.type === 'text') {
     if (textMode.value === 'file') return '视频/音频识别文案';
@@ -1304,6 +1306,53 @@ function durationBucket(seconds) {
   if (seconds <= 300) return '1-5m';
   if (seconds <= 600) return '5-10m';
   return '10m+';
+}
+
+function getResultDurationSeconds(data) {
+  const detail = findPrimaryDetail(data) || data?.aweme_detail || data?.itemInfo?.itemStruct || data?.note || data || {};
+  const video = detail.video || data?.video || {};
+  const candidates = [
+    data?.durationSeconds,
+    data?.lengthSeconds,
+    data?.duration,
+    data?.duration_sec,
+    data?.durationMs,
+    data?.duration_ms,
+    detail?.durationSeconds,
+    detail?.lengthSeconds,
+    detail?.duration,
+    detail?.duration_sec,
+    detail?.durationMs,
+    detail?.duration_ms,
+    video?.duration,
+    video?.duration_ms,
+    video?.durationMs,
+    video?.lengthSeconds,
+    data?.videos?.items?.[0]?.lengthMs
+  ];
+
+  for (const value of candidates) {
+    const seconds = normalizeDurationSeconds(value);
+    if (seconds > 0) return seconds;
+  }
+
+  return 0;
+}
+
+function normalizeDurationSeconds(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (/^\d+(?::\d+){1,2}$/.test(text)) {
+      return text.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+    }
+    const numeric = Number(text.replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(numeric)) return 0;
+    return numeric > 10000 ? numeric / 1000 : numeric;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return numeric > 10000 ? numeric / 1000 : numeric;
 }
 
 function navigate(path) {
@@ -1932,6 +1981,70 @@ async function copyArticleHtml() {
   });
 }
 
+async function transcribeExtractedVideo() {
+  const videoUrl = videoLinks.value[0];
+  if (!videoUrl) {
+    error.value = '请先提取到可用的视频链接。';
+    return;
+  }
+
+  const cleanUrl = extractUrl(url.value);
+  const durationSeconds = getResultDurationSeconds(result.value);
+  trackEvent('extract_start', {
+    inputType: 'extracted_video',
+    platform: cleanUrl ? detectPlatformFromUrl(cleanUrl) : 'direct_video',
+    targetType: 'video_transcript',
+    durationBucket: durationBucket(durationSeconds)
+  });
+  videoTranscriptLoading.value = true;
+  error.value = '';
+  notice.value = '正在提取视频逐字稿，请稍候...';
+
+  try {
+    const response = await fetch('/api/transcribe-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: cleanUrl,
+        videoUrl,
+        title: resultTitle.value,
+        publishedText: publishedText.value,
+        durationSeconds
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '视频逐字稿提取失败');
+    const transcript = payload.data?.transcript || payload.data?.text || '';
+    result.value = {
+      ...result.value,
+      ...payload.data,
+      transcript,
+      publishedText: payload.data?.publishedText || publishedText.value
+    };
+    notice.value = payload.data?.transcriptSkipped
+      ? payload.data.transcriptSkipReason || payload.message || '视频过长，已跳过逐字稿识别。'
+      : transcript
+        ? '视频逐字稿已提取完成。'
+        : '已完成请求，但没有识别到可用逐字稿。';
+    trackEvent('extract_success', {
+      inputType: 'extracted_video',
+      targetType: 'video_transcript',
+      hasTranscript: Boolean(transcript)
+    });
+    await loadMe();
+  } catch (err) {
+    error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
+    notice.value = '';
+    trackEvent('extract_failed', {
+      inputType: 'extracted_video',
+      targetType: 'video_transcript',
+      reason: String(error.value || '').slice(0, 90)
+    });
+  } finally {
+    videoTranscriptLoading.value = false;
+  }
+}
+
 function syncArticleDraft(event) {
   articleDraftHtml.value = event.currentTarget?.innerHTML || '';
 }
@@ -2006,6 +2119,7 @@ function resetResult() {
   articleView.value = 'text';
   articleDraftHtml.value = '';
   articleRewriteLoading.value = false;
+  videoTranscriptLoading.value = false;
 }
 
 function smoothScrollTo(targetY, duration = 900) {
@@ -2656,6 +2770,10 @@ onUnmounted(() => {
                 <video :src="previewVideoUrl" controls playsinline preload="metadata"></video>
                 <div class="video-actions">
                   <a :href="previewVideoUrl" download="video.mp4">下载视频</a>
+                  <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo">
+                    <Loader2 v-if="videoTranscriptLoading" class="spin" :size="16" />
+                    {{ videoTranscriptLoading ? '提取中...' : '提取逐字稿' }}
+                  </button>
                   <button @click="copyText(videoLinks[0])">复制视频链接</button>
                 </div>
                 <div v-if="videoLinks.length > 1" class="media-links">
@@ -2798,4 +2916,3 @@ onUnmounted(() => {
     </button>
   </div>
 </template>
-

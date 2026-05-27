@@ -1424,6 +1424,15 @@ h1 {
   color: var(--theme);
 }
 
+.video-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.video-actions button .spin {
+  margin-right: 6px;
+}
+
 .media-links a {
   background: #eff6ff;
   border: 1px solid #bfdbfe;

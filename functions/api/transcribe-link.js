@@ -11,8 +11,6 @@ export async function onRequestPost(context) {
   const siliconFlowKey = env.SILICONFLOW_API_KEY;
   const model = env.SILICONFLOW_TRANSCRIBE_MODEL || 'FunAudioLLM/SenseVoiceSmall';
 
-  if (!tikhubKey) return json({ ok: false, message: '提取服务暂未配置完成。' }, 500);
-
   let body;
   try {
     body = await request.json();
@@ -21,15 +19,23 @@ export async function onRequestPost(context) {
   }
 
   const url = String(body.url || '').trim();
-  if (!url) return json({ ok: false, message: '缺少作品链接。' }, 400);
+  const directVideoUrl = String(body.videoUrl || '').trim();
+  if (!url && !directVideoUrl) return json({ ok: false, message: '缺少作品链接或视频链接。' }, 400);
+  if (directVideoUrl && !isHttpUrl(directVideoUrl)) return json({ ok: false, message: '视频链接格式不正确。' }, 400);
+  if (!directVideoUrl && !tikhubKey) return json({ ok: false, message: '提取服务暂未配置完成。' }, 500);
 
   const quota = await requireQuota(context, 'extract');
   if (!quota.ok) return json({ ok: false, message: quota.message, needLogin: quota.status === 401 }, quota.status);
 
   try {
-    const sourceData = await extractByUrl({ apiKey: tikhubKey, baseUrl: tikhubBaseUrl, url });
-    const publishedText = getPublishedText(sourceData);
-    const durationSeconds = getDurationSeconds(sourceData);
+    const sourceData = directVideoUrl
+      ? {
+          title: String(body.title || '').trim(),
+          video_url: directVideoUrl
+        }
+      : await extractByUrl({ apiKey: tikhubKey, baseUrl: tikhubBaseUrl, url });
+    const publishedText = String(body.publishedText || '').trim() || getPublishedText(sourceData);
+    const durationSeconds = Number(body.durationSeconds || 0) || getDurationSeconds(sourceData);
     const maxTranscribeSeconds = await getMaxTranscribeSeconds(context, quota);
 
     if (durationSeconds > maxTranscribeSeconds) {
@@ -45,14 +51,14 @@ export async function onRequestPost(context) {
       };
       await recordUsage(context, quota, {
         action: 'extract',
-        sourceUrl: url,
-        resultTitle: getPublishedText(sourceData) || sourceData?.title || null
+        sourceUrl: url || directVideoUrl,
+        resultTitle: publishedText || sourceData?.title || null
       });
       const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
       return json({ ok: true, message, data }, 200, headers);
     }
 
-    const subtitleUrl = getSubtitleLinks(sourceData)[0];
+    const subtitleUrl = directVideoUrl ? '' : getSubtitleLinks(sourceData)[0];
 
     if (subtitleUrl) {
       const subtitleText = await fetchSubtitleText(subtitleUrl);
@@ -66,8 +72,8 @@ export async function onRequestPost(context) {
         };
         await recordUsage(context, quota, {
           action: 'extract',
-          sourceUrl: url,
-          resultTitle: getPublishedText(sourceData) || sourceData?.title || null
+          sourceUrl: url || directVideoUrl,
+          resultTitle: publishedText || sourceData?.title || null
         });
         const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
         return json({ ok: true, data }, 200, headers);
@@ -124,8 +130,8 @@ export async function onRequestPost(context) {
     };
     await recordUsage(context, quota, {
       action: 'extract',
-      sourceUrl: url,
-      resultTitle: getPublishedText(sourceData) || sourceData?.title || null
+      sourceUrl: url || directVideoUrl,
+      resultTitle: publishedText || sourceData?.title || null
     });
     const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
 
@@ -136,6 +142,10 @@ export async function onRequestPost(context) {
   } catch (error) {
     return json({ ok: false, message: error.message || '链接视频转写失败。' }, 502);
   }
+}
+
+function isHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || ''));
 }
 
 async function getMaxTranscribeSeconds(context, quota) {
