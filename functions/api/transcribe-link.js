@@ -3,8 +3,21 @@ import { recordUsage, requireQuota } from './_auth.js';
 import { getDefaultMaxVideoMinutes, getMembershipPlan } from './_plans.js';
 
 const FREE_MAX_TRANSCRIBE_SECONDS = 5 * 60;
+const MAX_TRANSCRIBE_SOURCE_BYTES = 80 * 1024 * 1024;
 
 export async function onRequestPost(context) {
+  try {
+    return await handleTranscribeLink(context);
+  } catch (error) {
+    return json({
+      ok: false,
+      message: `逐字稿接口内部错误：${error?.message || String(error)}`,
+      stack: context.env?.PUBLIC_DEBUG_ERRORS === 'true' ? String(error?.stack || '') : undefined
+    }, 500);
+  }
+}
+
+async function handleTranscribeLink(context) {
   const { request, env } = context;
   const tikhubKey = env.TIKHUB_API_KEY;
   const tikhubBaseUrl = env.TIKHUB_BASE_URL || 'https://api.tikhub.io';
@@ -123,7 +136,9 @@ export async function onRequestPost(context) {
       }, 502);
     }
 
+    assertMediaResponseSize(mediaResponse);
     const mediaBlob = await mediaResponse.blob();
+    assertBlobSize(mediaBlob);
     const transcriptPayload = await transcribeBlob({
       apiKey: siliconFlowKey,
       baseUrl: siliconFlowBaseUrl,
@@ -194,7 +209,9 @@ async function transcribeOriginalLink(context, { url, apiKey, baseUrl, siliconFl
     }, 502);
   }
 
+  assertMediaResponseSize(mediaResponse);
   const mediaBlob = await mediaResponse.blob();
+  assertBlobSize(mediaBlob);
   const transcriptPayload = await transcribeBlob({
     apiKey: siliconFlowKey,
     baseUrl: siliconFlowBaseUrl,
@@ -239,6 +256,19 @@ function videoFetchHeaders(sourceUrl = '') {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
     Referer: referer
   };
+}
+
+function assertMediaResponseSize(response) {
+  const length = Number(response.headers.get('Content-Length') || response.headers.get('content-length') || 0);
+  if (length > MAX_TRANSCRIBE_SOURCE_BYTES) {
+    throw new Error(`视频源文件过大，暂时无法在当前接口内转写。文件大小约 ${Math.round(length / 1024 / 1024)}MB，当前限制 ${Math.round(MAX_TRANSCRIBE_SOURCE_BYTES / 1024 / 1024)}MB。`);
+  }
+}
+
+function assertBlobSize(blob) {
+  if (blob.size > MAX_TRANSCRIBE_SOURCE_BYTES) {
+    throw new Error(`视频源文件过大，暂时无法在当前接口内转写。文件大小约 ${Math.round(blob.size / 1024 / 1024)}MB，当前限制 ${Math.round(MAX_TRANSCRIBE_SOURCE_BYTES / 1024 / 1024)}MB。`);
+  }
 }
 
 async function getMaxTranscribeSeconds(context, quota) {
