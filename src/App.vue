@@ -2012,7 +2012,7 @@ async function transcribeExtractedVideo() {
         durationSeconds
       })
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response, '逐字稿接口');
     if (!response.ok || !payload.ok) throw new Error(payload.message || '视频逐字稿提取失败');
     const transcript = payload.data?.transcript || payload.data?.text || '';
     result.value = {
@@ -2042,6 +2042,22 @@ async function transcribeExtractedVideo() {
     });
   } finally {
     videoTranscriptLoading.value = false;
+  }
+}
+
+async function readJsonResponse(response, label = '接口') {
+  const contentType = response.headers.get('Content-Type') || response.headers.get('content-type') || '';
+  const text = await response.text();
+  const preview = text.slice(0, 500);
+
+  if (!contentType.toLowerCase().includes('application/json')) {
+    throw new Error(`${label}没有返回 JSON。状态码：${response.status}；content-type：${contentType || '空'}；响应前500字：${preview || '空响应'}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error(`${label}返回 JSON 解析失败：${err.message}。状态码：${response.status}；content-type：${contentType || '空'}；响应前500字：${preview || '空响应'}`);
   }
 }
 

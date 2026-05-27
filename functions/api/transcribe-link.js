@@ -9,6 +9,7 @@ export async function onRequestPost(context) {
   const tikhubKey = env.TIKHUB_API_KEY;
   const tikhubBaseUrl = env.TIKHUB_BASE_URL || 'https://api.tikhub.io';
   const siliconFlowKey = env.SILICONFLOW_API_KEY;
+  const siliconFlowBaseUrl = env.SILICONFLOW_BASE_URL || env.SILICONFLOW_API_BASE_URL || 'https://api.siliconflow.com';
   const model = env.SILICONFLOW_TRANSCRIBE_MODEL || 'FunAudioLLM/SenseVoiceSmall';
 
   let body;
@@ -99,16 +100,24 @@ export async function onRequestPost(context) {
     }
 
     const mediaResponse = await fetch(videoUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
-        Referer: 'https://www.douyin.com/'
-      }
+      headers: videoFetchHeaders(url || videoUrl)
     });
 
     if (!mediaResponse.ok) {
+      if (directVideoUrl && url && tikhubKey) {
+        return transcribeOriginalLink(context, {
+          url,
+          apiKey: tikhubKey,
+          baseUrl: tikhubBaseUrl,
+          siliconFlowKey,
+          siliconFlowBaseUrl,
+          model,
+          quota
+        });
+      }
       return json({
         ok: false,
-        message: '视频源下载失败，暂时无法转写视频本身文案。',
+        message: `视频源下载失败，暂时无法转写视频本身文案。视频源返回 ${mediaResponse.status}。`,
         status: mediaResponse.status,
         data: sourceData
       }, 502);
@@ -117,6 +126,7 @@ export async function onRequestPost(context) {
     const mediaBlob = await mediaResponse.blob();
     const transcriptPayload = await transcribeBlob({
       apiKey: siliconFlowKey,
+      baseUrl: siliconFlowBaseUrl,
       model,
       blob: mediaBlob,
       filename: 'source-video.mp4'
@@ -144,8 +154,91 @@ export async function onRequestPost(context) {
   }
 }
 
+async function transcribeOriginalLink(context, { url, apiKey, baseUrl, siliconFlowKey, siliconFlowBaseUrl, model, quota }) {
+  const sourceData = await extractByUrl({ apiKey, baseUrl, url });
+  const publishedText = getPublishedText(sourceData);
+  const subtitleUrl = getSubtitleLinks(sourceData)[0];
+  if (subtitleUrl) {
+    const subtitleText = await fetchSubtitleText(subtitleUrl);
+    if (subtitleText) {
+      const data = {
+        ...sourceData,
+        text: subtitleText,
+        transcript: subtitleText,
+        publishedText,
+        transcriptSource: 'subtitle'
+      };
+      await recordUsage(context, quota, {
+        action: 'extract',
+        sourceUrl: url,
+        resultTitle: publishedText || sourceData?.title || null
+      });
+      const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
+      return json({ ok: true, data }, 200, headers);
+    }
+  }
+
+  const fallbackVideoUrl = getVideoLinks(sourceData)[0];
+  if (!fallbackVideoUrl) {
+    return json({ ok: false, message: '已重新解析作品，但仍没有拿到可转写的视频源。', data: sourceData }, 502);
+  }
+  if (!siliconFlowKey) return json({ ok: false, message: '转写服务暂未配置完成。', data: sourceData }, 500);
+
+  const mediaResponse = await fetch(fallbackVideoUrl, { headers: videoFetchHeaders(url) });
+  if (!mediaResponse.ok) {
+    return json({
+      ok: false,
+      message: `视频源下载失败，暂时无法转写视频本身文案。视频源返回 ${mediaResponse.status}。`,
+      status: mediaResponse.status,
+      data: sourceData
+    }, 502);
+  }
+
+  const mediaBlob = await mediaResponse.blob();
+  const transcriptPayload = await transcribeBlob({
+    apiKey: siliconFlowKey,
+    baseUrl: siliconFlowBaseUrl,
+    model,
+    blob: mediaBlob,
+    filename: 'source-video.mp4'
+  });
+  const data = {
+    ...sourceData,
+    text: transcriptPayload.text || '',
+    transcript: transcriptPayload.text || '',
+    publishedText
+  };
+  await recordUsage(context, quota, {
+    action: 'extract',
+    sourceUrl: url,
+    resultTitle: publishedText || sourceData?.title || null
+  });
+  const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
+  return json({ ok: true, data }, 200, headers);
+}
+
 function isHttpUrl(value) {
   return /^https?:\/\//i.test(String(value || ''));
+}
+
+function videoFetchHeaders(sourceUrl = '') {
+  const text = String(sourceUrl || '').toLowerCase();
+  const referer = text.includes('xiaohongshu') || text.includes('xhslink')
+    ? 'https://www.xiaohongshu.com/'
+    : text.includes('tiktok')
+      ? 'https://www.tiktok.com/'
+      : text.includes('kuaishou')
+        ? 'https://www.kuaishou.com/'
+        : text.includes('bilibili') || text.includes('b23.tv')
+          ? 'https://www.bilibili.com/'
+          : text.includes('instagram')
+            ? 'https://www.instagram.com/'
+            : 'https://www.douyin.com/';
+
+  return {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
+    Referer: referer
+  };
 }
 
 async function getMaxTranscribeSeconds(context, quota) {
@@ -161,12 +254,13 @@ async function getMaxTranscribeSeconds(context, quota) {
   return getDefaultMaxVideoMinutes(plan) * 60;
 }
 
-async function transcribeBlob({ apiKey, model, blob, filename }) {
+async function transcribeBlob({ apiKey, baseUrl, model, blob, filename }) {
   const form = new FormData();
   form.set('model', model);
   form.set('file', new File([blob], filename, { type: blob.type || 'video/mp4' }));
 
-  const response = await fetch('https://api.siliconflow.cn/v1/audio/transcriptions', {
+  const endpoint = `${String(baseUrl || 'https://api.siliconflow.com').replace(/\/+$/, '')}/v1/audio/transcriptions`;
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`
@@ -174,15 +268,46 @@ async function transcribeBlob({ apiKey, model, blob, filename }) {
     body: form
   });
 
-  const payload = await safeJson(response);
+  const payload = await readUpstreamPayload(response, 'SiliconFlow 转写接口');
   if (!response.ok) {
     throw new Error(payload?.message || payload?.error?.message || '视频转写失败。');
   }
 
-  return {
-    text: payload.text || payload.data?.text || '',
-    raw: payload
-  };
+  const text = readTranscriptText(payload);
+  if (!text) throw new Error('转写服务返回了空文本，可能是视频没有清晰人声、音轨不可读，或当前视频源不适合转写。');
+
+  return { text, raw: payload };
+}
+
+async function readUpstreamPayload(response, label) {
+  const status = response.status;
+  const contentType = response.headers.get('Content-Type') || response.headers.get('content-type') || '';
+  const text = await response.text();
+  const preview = text.slice(0, 500);
+
+  if (!contentType.toLowerCase().includes('application/json')) {
+    throw new Error(`${label}没有返回 JSON。上游状态码：${status}；content-type：${contentType || '空'}；响应前500字：${preview || '空响应'}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${label}返回 JSON 解析失败：${error.message}。上游状态码：${status}；content-type：${contentType || '空'}；响应前500字：${preview || '空响应'}`);
+  }
+}
+
+function readTranscriptText(payload) {
+  const direct = payload?.text || payload?.data?.text || payload?.result?.text || payload?.data?.result?.text;
+  if (direct) return String(direct).trim();
+  const segments = payload?.segments || payload?.data?.segments || payload?.result?.segments;
+  if (Array.isArray(segments)) {
+    return segments
+      .map((item) => item?.text || item?.sentence || item?.value || '')
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+  }
+  return '';
 }
 
 function getVideoLinks(data) {
@@ -329,13 +454,4 @@ function getPublishedText(data) {
     data?.note?.desc ||
     ''
   );
-}
-
-async function safeJson(response) {
-  const text = await response.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { text };
-  }
 }
