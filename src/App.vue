@@ -2052,7 +2052,7 @@ function onScroll() {
 }
 
 function scrollToTop() {
-  smoothScrollTo(0, 800);
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 onMounted(async () => {
