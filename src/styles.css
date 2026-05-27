@@ -865,26 +865,17 @@ h1 {
 }
 
 .extract-box {
-  background:
-    linear-gradient(#ffffff, #ffffff) padding-box,
-    linear-gradient(135deg, color-mix(in srgb, var(--theme) 42%, #ffffff), rgba(8, 145, 178, 0.28), rgba(255, 255, 255, 0.7)) border-box;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid transparent;
-  border-radius: 16px;
-  box-shadow:
-    0 26px 80px rgba(15, 23, 42, 0.11),
-    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
-    0 0 80px color-mix(in srgb, var(--theme) 9%, transparent) inset;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   margin: 0 auto;
   max-width: 920px;
-  padding: 20px;
+  padding: 0;
   position: relative;
-  text-align: left;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  text-align: center;
 }
 
-.extract-box::before,
 .upload-extract-box::before {
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--theme) 42%, transparent), transparent);
   content: "";
@@ -895,22 +886,18 @@ h1 {
   top: 0;
 }
 
-.extract-box:hover {
-  box-shadow:
-    0 30px 90px rgba(15, 23, 42, 0.14),
-    0 0 0 1px rgba(255, 255, 255, 0.7) inset,
-    0 0 110px color-mix(in srgb, var(--theme) 12%, transparent) inset;
-}
-
 .extract-box input {
-  background: #f8fbff;
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow:
+    0 18px 54px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
   color: #111827;
   font-size: 17px;
-  min-height: 56px;
+  min-height: 68px;
   outline: none;
-  padding: 0 18px;
+  padding: 0 22px;
   width: 100%;
 }
 
@@ -1021,11 +1008,26 @@ h1 {
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .button-row .primary-button {
   min-width: 160px;
+}
+
+.extract-box .secondary-button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: #475467;
+  padding-inline: 12px;
+}
+
+.extract-box .secondary-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.66);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--theme);
 }
 
 .alert {
