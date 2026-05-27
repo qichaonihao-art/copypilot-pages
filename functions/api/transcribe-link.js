@@ -12,6 +12,10 @@ export async function onRequestPost(context) {
     return json({
       ok: false,
       message: `逐字稿接口内部错误：${error?.message || String(error)}`,
+      upstreamUrl: error?.upstreamUrl || null,
+      status: error?.status || null,
+      contentType: error?.contentType || null,
+      responsePreview: error?.responsePreview || null,
       stack: context.env?.PUBLIC_DEBUG_ERRORS === 'true' ? String(error?.stack || '') : undefined
     }, 500);
   }
@@ -131,7 +135,10 @@ async function handleTranscribeLink(context) {
       return json({
         ok: false,
         message: `视频源下载失败，暂时无法转写视频本身文案。视频源返回 ${mediaResponse.status}。`,
+        upstreamUrl: sanitizeUpstreamUrl(videoUrl),
         status: mediaResponse.status,
+        contentType: mediaResponse.headers.get('Content-Type') || mediaResponse.headers.get('content-type') || '',
+        responsePreview: await readResponsePreview(mediaResponse),
         data: sourceData
       }, 502);
     }
@@ -165,7 +172,14 @@ async function handleTranscribeLink(context) {
       data
     }, 200, headers);
   } catch (error) {
-    return json({ ok: false, message: error.message || '链接视频转写失败。' }, 502);
+    return json({
+      ok: false,
+      message: error.message || '链接视频转写失败。',
+      upstreamUrl: error?.upstreamUrl || null,
+      status: error?.status || null,
+      contentType: error?.contentType || null,
+      responsePreview: error?.responsePreview || null
+    }, 502);
   }
 }
 
@@ -204,7 +218,10 @@ async function transcribeOriginalLink(context, { url, apiKey, baseUrl, siliconFl
     return json({
       ok: false,
       message: `视频源下载失败，暂时无法转写视频本身文案。视频源返回 ${mediaResponse.status}。`,
+      upstreamUrl: sanitizeUpstreamUrl(fallbackVideoUrl),
       status: mediaResponse.status,
+      contentType: mediaResponse.headers.get('Content-Type') || mediaResponse.headers.get('content-type') || '',
+      responsePreview: await readResponsePreview(mediaResponse),
       data: sourceData
     }, 502);
   }
@@ -271,6 +288,14 @@ function assertBlobSize(blob) {
   }
 }
 
+async function readResponsePreview(response) {
+  try {
+    return (await response.clone().text()).slice(0, 300);
+  } catch {
+    return '';
+  }
+}
+
 async function getMaxTranscribeSeconds(context, quota) {
   const plan = quota?.user?.plan;
   if (!context.env.DB || !plan || plan === 'free') return FREE_MAX_TRANSCRIBE_SECONDS;
@@ -298,7 +323,7 @@ async function transcribeBlob({ apiKey, baseUrl, model, blob, filename }) {
     body: form
   });
 
-  const payload = await readUpstreamPayload(response, 'SiliconFlow 转写接口');
+  const payload = await readUpstreamPayload(response, 'SiliconFlow 转写接口', endpoint);
   if (!response.ok) {
     throw new Error(payload?.message || payload?.error?.message || '视频转写失败。');
   }
@@ -309,20 +334,53 @@ async function transcribeBlob({ apiKey, baseUrl, model, blob, filename }) {
   return { text, raw: payload };
 }
 
-async function readUpstreamPayload(response, label) {
+async function readUpstreamPayload(response, label, upstreamUrl) {
   const status = response.status;
   const contentType = response.headers.get('Content-Type') || response.headers.get('content-type') || '';
   const text = await response.text();
-  const preview = text.slice(0, 500);
+  const preview = text.slice(0, 300);
+  const safeUrl = sanitizeUpstreamUrl(upstreamUrl);
 
   if (!contentType.toLowerCase().includes('application/json')) {
-    throw new Error(`${label}没有返回 JSON。上游状态码：${status}；content-type：${contentType || '空'}；响应前500字：${preview || '空响应'}`);
+    throw upstreamError(`${label}没有返回 JSON。upstreamUrl：${safeUrl}；上游状态码：${status}；content-type：${contentType || '空'}；响应前300字：${preview || '空响应'}`, {
+      upstreamUrl: safeUrl,
+      status,
+      contentType,
+      responsePreview: preview || '空响应'
+    });
   }
 
   try {
     return JSON.parse(text);
   } catch (error) {
-    throw new Error(`${label}返回 JSON 解析失败：${error.message}。上游状态码：${status}；content-type：${contentType || '空'}；响应前500字：${preview || '空响应'}`);
+    throw upstreamError(`${label}返回 JSON 解析失败：${error.message}。upstreamUrl：${safeUrl}；上游状态码：${status}；content-type：${contentType || '空'}；响应前300字：${preview || '空响应'}`, {
+      upstreamUrl: safeUrl,
+      status,
+      contentType,
+      responsePreview: preview || '空响应'
+    });
+  }
+}
+
+function upstreamError(message, details) {
+  const error = new Error(message);
+  Object.assign(error, details);
+  return error;
+}
+
+function sanitizeUpstreamUrl(value) {
+  const raw = String(value || '');
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    for (const key of url.searchParams.keys()) {
+      if (/key|token|secret|sign|signature|auth|authorization|credential/i.test(key)) {
+        url.searchParams.set(key, '***');
+      }
+    }
+    return url.toString();
+  } catch {
+    return raw.replace(/(api[_-]?key|token|secret|sign|signature|authorization)=([^&\s]+)/gi, '$1=***');
   }
 }
 
