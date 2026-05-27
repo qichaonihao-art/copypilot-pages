@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   BadgeCheck,
   Captions,
@@ -2045,9 +2045,24 @@ watch(hasResultContent, async (val, oldVal) => {
   }
 });
 
+const showBackToTop = ref(false);
+
+function onScroll() {
+  showBackToTop.value = window.scrollY > 400;
+}
+
+function scrollToTop() {
+  smoothScrollTo(0, 800);
+}
+
 onMounted(async () => {
   await loadMe();
   trackEvent('page_view', { path: currentPath.value });
+  window.addEventListener('scroll', onScroll, { passive: true });
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll);
 });
 </script>
 
@@ -2771,6 +2786,16 @@ onMounted(async () => {
         </nav>
       </div>
     </footer>
+
+    <button
+      v-show="showBackToTop"
+      class="back-to-top"
+      :class="{ show: showBackToTop }"
+      @click="scrollToTop"
+      aria-label="回到顶部"
+    >
+      <ChevronUp :size="22" />
+    </button>
   </div>
 </template>
 
