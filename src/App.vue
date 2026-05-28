@@ -25,6 +25,7 @@ const initialPath = window.location.pathname;
 const currentPath = ref(initialPath);
 const lang = ref(initialPath.startsWith('/en/') ? 'en' : localStorage.getItem('copypilot-lang') || 'zh');
 const url = ref('');
+const urlInput = ref(null);
 const fileMode = ref('video');
 const textMode = ref('link');
 const articleView = ref('text');
@@ -1947,6 +1948,19 @@ async function logout() {
 function clearInput() {
   url.value = '';
   resetResult();
+  nextTick(() => {
+    const el = urlInput.value;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+  });
+}
+
+function autoResizeTextarea(event) {
+  const el = event.target;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 async function copyText(value) {
@@ -2618,8 +2632,10 @@ onUnmounted(() => {
         </div>
 
         <section v-if="isLinkInputPage" class="extract-box" aria-label="链接提取">
-          <input
+          <textarea
             v-model="url"
+            ref="urlInput"
+            rows="1"
             :placeholder="
               isHome
                 ? uiText.placeholders.auto
@@ -2631,6 +2647,7 @@ onUnmounted(() => {
                     ? uiText.placeholders.article
                     : uiText.placeholders.text
             "
+            @input="autoResizeTextarea"
           />
           <div class="button-row">
             <button class="primary-button" :disabled="loading" @click="extract">
