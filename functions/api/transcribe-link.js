@@ -29,11 +29,18 @@ export async function onRequestPost(context) {
       { headers: { Authorization: `Bearer ${tikhubKey}` } }
     );
 
+    const tikhubData = await tikhubRes.json().catch(() => null);
+
+    // Extract video URL
+    const detail = tikhubData?.data?.aweme_detail || tikhubData?.aweme_detail || {};
+    const video = detail.video || {};
+    const videoUrl = video.play_addr?.url_list?.[0] || video.download_addr?.url_list?.[0] || detail.video_url;
+
     return jsonResponse({
       ok: true,
-      message: 'TikHub called',
-      tikhubStatus: tikhubRes.status,
-      tikhubOk: tikhubRes.ok
+      message: 'video extracted',
+      hasVideoUrl: Boolean(videoUrl),
+      videoUrl: videoUrl ? videoUrl.slice(0, 80) : null
     });
 
   } catch (error) {
