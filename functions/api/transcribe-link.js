@@ -97,10 +97,15 @@ async function getMaxTranscribeSeconds(context, quota) {
 function getVolcengineAuth(env) {
   const apiKey = String(env.VOLCENGINE_API_KEY || '').trim();
   if (apiKey) return { ok: true, mode: 'apiKey', apiKey };
-  const appId = String(env.VOLCENGINE_APP_ID || '').trim();
-  const token = String(env.VOLCENGINE_ACCESS_TOKEN || '').trim();
-  if (appId && token) return { ok: true, mode: 'legacy', appId, accessToken: token };
-  return { ok: false, message: '转写服务暂未配置。' };
+
+  const useLegacy = String(env.VOLCENGINE_USE_LEGACY || '').trim() === 'true';
+  if (useLegacy) {
+    const appId = String(env.VOLCENGINE_APP_ID || '').trim();
+    const token = String(env.VOLCENGINE_ACCESS_TOKEN || '').trim();
+    if (appId && token) return { ok: true, mode: 'legacy', appId, accessToken: token };
+  }
+
+  return { ok: false, message: '转写服务暂未配置。请在 Cloudflare Pages 环境变量中设置 VOLCENGINE_API_KEY。' };
 }
 
 function volcengineHeaders({ auth, taskId, sequence }) {
