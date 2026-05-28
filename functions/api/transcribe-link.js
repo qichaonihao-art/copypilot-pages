@@ -1,7 +1,6 @@
 import { extractByUrl, json } from './_tikhub.js';
 import { recordUsage, requireQuota } from './_auth.js';
 import { getDefaultMaxVideoMinutes, getMembershipPlan } from './_plans.js';
-import { getVolcengineAuth, volcengineHeaders } from './_volcengine.js';
 
 const FREE_MAX_TRANSCRIBE_SECONDS = 5 * 60;
 
@@ -93,6 +92,27 @@ async function getMaxTranscribeSeconds(context, quota) {
     if (config?.maxVideoMinutes) return config.maxVideoMinutes * 60;
   } catch {}
   return getDefaultMaxVideoMinutes(plan) * 60;
+}
+
+function getVolcengineAuth(env) {
+  const apiKey = String(env.VOLCENGINE_API_KEY || '').trim();
+  if (apiKey) return { ok: true, mode: 'apiKey', apiKey };
+  const appId = String(env.VOLCENGINE_APP_ID || '').trim();
+  const token = String(env.VOLCENGINE_ACCESS_TOKEN || '').trim();
+  if (appId && token) return { ok: true, mode: 'legacy', appId, accessToken: token };
+  return { ok: false, message: '转写服务暂未配置。' };
+}
+
+function volcengineHeaders({ auth, taskId, sequence }) {
+  return {
+    'Content-Type': 'application/json',
+    'X-Api-Resource-Id': 'volc.seedasr.auc',
+    'X-Api-Request-Id': taskId,
+    ...(sequence ? { 'X-Api-Sequence': sequence } : {}),
+    ...(auth.mode === 'legacy'
+      ? { 'X-Api-App-Key': auth.appId, 'X-Api-Access-Key': auth.accessToken }
+      : { 'X-Api-Key': auth.apiKey })
+  };
 }
 
 async function submitVolcengineTask({ auth, videoUrl }) {
