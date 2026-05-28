@@ -81,19 +81,6 @@ body {
   z-index: 0;
 }
 
-.site::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(37, 99, 235, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(8, 145, 178, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 0px 0px, rgba(37, 99, 235, 0.22) 1.5px, transparent 2px);
-  background-size: 52px 52px;
-  pointer-events: none;
-  z-index: 0;
-}
-
 button,
 input {
   font: inherit;
