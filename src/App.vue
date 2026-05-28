@@ -1986,9 +1986,10 @@ async function transcribeExtractedVideo() {
   });
   videoTranscriptLoading.value = true;
   error.value = '';
-  notice.value = '正在提取视频逐字稿，请稍候...';
+  notice.value = '正在提交视频逐字稿任务...';
 
   try {
+    // Step 1: Submit transcription task
     const response = await fetch('/api/transcribe-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2002,24 +2003,58 @@ async function transcribeExtractedVideo() {
     });
     const payload = await readJsonResponse(response, '逐字稿接口');
     if (!response.ok || !payload.ok) throw new Error(formatApiError(payload, '视频逐字稿提取失败'));
-    const transcript = payload.data?.transcript || payload.data?.text || '';
+
+    const taskId = payload.data?.taskId;
+    if (!taskId) throw new Error('服务端未返回任务ID。');
+
     result.value = {
       ...result.value,
       ...payload.data,
-      transcript,
       publishedText: payload.data?.publishedText || publishedText.value
     };
-    notice.value = payload.data?.transcriptSkipped
-      ? payload.data.transcriptSkipReason || payload.message || '视频过长，已跳过逐字稿识别。'
-      : transcript
-        ? '视频逐字稿已提取完成。'
-        : '已完成请求，但没有识别到可用逐字稿。';
-    trackEvent('extract_success', {
-      inputType: 'extracted_video',
-      targetType: 'video_transcript',
-      hasTranscript: Boolean(transcript)
-    });
-    await loadMe();
+
+    // Step 2: Poll for result
+    notice.value = '火山ASR 正在处理视频逐字稿...';
+    const maxAttempts = 30;
+    const pollInterval = 2000;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+      const queryResponse = await fetch('/api/transcribe-query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      });
+      const queryPayload = await readJsonResponse(queryResponse, '查询逐字稿');
+
+      if (!queryResponse.ok || !queryPayload.ok) {
+        if (queryPayload.status === 'processing') continue;
+        throw new Error(queryPayload.message || '查询逐字稿失败');
+      }
+
+      if (queryPayload.status === 'processing') {
+        notice.value = attempt < 2
+          ? '火山ASR 正在处理视频逐字稿...'
+          : `正在提取视频逐字稿（${Math.round(attempt * pollInterval / 1000)}秒）...`;
+        continue;
+      }
+
+      if (queryPayload.status === 'completed' && queryPayload.transcript) {
+        result.value = { ...result.value, transcript: queryPayload.transcript, text: queryPayload.transcript };
+        notice.value = '视频逐字稿已提取完成。';
+        trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', hasTranscript: true });
+        await loadMe();
+        videoTranscriptLoading.value = false;
+        return;
+      }
+
+      if (!String(queryPayload.status || '').startsWith('2')) {
+        throw new Error(queryPayload.message || `转写状态异常：${queryPayload.status}`);
+      }
+    }
+
+    throw new Error('火山ASR转写超时（60秒），请稍后重试。');
   } catch (err) {
     error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
     notice.value = '';
