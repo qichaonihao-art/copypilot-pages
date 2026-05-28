@@ -4,6 +4,10 @@ import { getDefaultMaxVideoMinutes, getMembershipPlan } from './_plans.js';
 
 const FREE_MAX_TRANSCRIBE_SECONDS = 5 * 60;
 
+export async function onRequestGet() {
+  return json({ ok: true, message: "transcribe-link alive, use POST" });
+}
+
 export async function onRequestPost(context) {
   try {
     return await handleTranscribeLink(context);
