@@ -1463,43 +1463,15 @@ async function extract() {
       });
     }
 
-    if (smartHome && videoLinks.value.length) {
-      setExtractProgress(uiText.value.progressTranscribe, 72);
-      try {
-        const transcriptResponse = await fetch('/api/transcribe-link', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: cleanUrl, type: 'text' })
-        });
-        const transcriptPayload = await transcriptResponse.json();
-        if (transcriptResponse.ok && transcriptPayload.ok) {
-          result.value = {
-            ...result.value,
-            ...transcriptPayload.data,
-            transcript: transcriptPayload.data?.transcript || transcriptPayload.data?.text || result.value?.transcript || '',
-            publishedText: transcriptPayload.data?.publishedText || publishedText.value
-          };
-          if (transcriptPayload.data?.transcriptSkipped) {
-            notice.value = transcriptPayload.data.transcriptSkipReason || transcriptPayload.message || '免费版视频超过5分钟，已跳过视频文案识别。';
-          }
-        } else if (transcriptPayload.data) {
-          result.value = { ...result.value, ...transcriptPayload.data };
-          notice.value = `基础内容已提取完成；${transcriptPayload.message || '视频语音文案暂时未识别成功。'}`;
-        } else {
-          notice.value = `基础内容已提取完成；${transcriptPayload.message || '视频语音文案暂时未识别成功。'}`;
-        }
-      } catch (transcriptError) {
-        notice.value = `基础内容已提取完成；视频语音文案暂时未识别成功：${transcriptError.message || '网络请求失败。'}`;
-      }
-    }
-
     setExtractProgress(uiText.value.progressFinalize, 94);
     if (!notice.value) {
       notice.value = result.value?.transcriptSkipped
         ? result.value.transcriptSkipReason || '免费版视频超过5分钟，已跳过视频文案识别。'
         : endpoint === '/api/transcribe-link' || result.value?.transcript
         ? '提取完成，已识别视频本身文案，并整理标题、素材和标签。'
-        : '提取完成，已整理标题、发布文案、标签和可用素材。';
+        : videoLinks.value.length
+          ? '提取完成，已整理标题、发布文案、标签和视频素材。需要逐字稿时可点击“提取逐字稿”。'
+          : '提取完成，已整理标题、发布文案、标签和可用素材。';
     }
     trackEvent('extract_success', {
       inputType: 'link',
