@@ -25,7 +25,7 @@ async function handleTranscribeLink(context) {
   const { request, env } = context;
   const tikhubKey = env.TIKHUB_API_KEY;
   const tikhubBaseUrl = env.TIKHUB_BASE_URL || 'https://api.tikhub.io';
-  const volcengineKey = env.VOLCENGINE_API_KEY;
+  const volcengineAuth = getVolcengineAuth(env);
 
   let body;
   try {
@@ -73,9 +73,9 @@ async function handleTranscribeLink(context) {
 
   const videoUrl = getVideoLinks(sourceData)[0];
   if (!videoUrl) return json({ ok: false, message: '已解析作品信息，但没有拿到可转写的视频源。', data: sourceData }, 502);
-  if (!volcengineKey) return json({ ok: false, message: '转写服务暂未配置完成。', data: sourceData }, 500);
+  if (!volcengineAuth.ok) return json({ ok: false, message: volcengineAuth.message, data: sourceData }, 500);
 
-  const transcriptText = await transcribeWithVolcengine({ apiKey: volcengineKey, videoUrl });
+  const transcriptText = await transcribeWithVolcengine({ auth: volcengineAuth, videoUrl });
 
   const data = { ...sourceData, text: transcriptText, transcript: transcriptText, publishedText };
   await recordUsage(context, quota, { action: 'extract', sourceUrl: url || directVideoUrl, resultTitle: publishedText || sourceData?.title || null });
@@ -94,20 +94,44 @@ async function getMaxTranscribeSeconds(context, quota) {
   return getDefaultMaxVideoMinutes(plan) * 60;
 }
 
-async function transcribeWithVolcengine({ apiKey, videoUrl }) {
+function getVolcengineAuth(env) {
+  const apiKey = String(env.VOLCENGINE_API_KEY || '').trim();
+  if (apiKey) return { ok: true, mode: 'apiKey', apiKey };
+
+  const appId = String(env.VOLCENGINE_APP_ID || env.VOLCENGINE_APP_KEY || '').trim();
+  const accessToken = String(env.VOLCENGINE_ACCESS_TOKEN || env.VOLCENGINE_ACCESS_KEY || env.VOLCENGINE_TOKEN || '').trim();
+  if (appId && accessToken) return { ok: true, mode: 'legacy', appId, accessToken };
+
+  return {
+    ok: false,
+    message: '转写服务暂未配置完成。新版控制台请配置 VOLCENGINE_API_KEY；旧版控制台请配置 VOLCENGINE_APP_ID 和 VOLCENGINE_ACCESS_TOKEN。'
+  };
+}
+
+function volcengineHeaders({ auth, taskId, sequence }) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Api-Resource-Id': 'volc.seedasr.auc',
+    'X-Api-Request-Id': taskId
+  };
+  if (sequence) headers['X-Api-Sequence'] = sequence;
+  if (auth.mode === 'legacy') {
+    headers['X-Api-App-Key'] = auth.appId;
+    headers['X-Api-Access-Key'] = auth.accessToken;
+  } else {
+    headers['X-Api-Key'] = auth.apiKey;
+  }
+  return headers;
+}
+
+async function transcribeWithVolcengine({ auth, videoUrl }) {
   const taskId = crypto.randomUUID();
   const submitUrl = 'https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit';
   const queryUrl = 'https://openspeech.bytedance.com/api/v3/auc/bigmodel/query';
 
   const submitResponse = await fetch(submitUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
-      'X-Api-Resource-Id': 'volc.seedasr.auc',
-      'X-Api-Request-Id': taskId,
-      'X-Api-Sequence': '-1'
-    },
+    headers: volcengineHeaders({ auth, taskId, sequence: '-1' }),
     body: JSON.stringify({
       user: { uid: taskId },
       audio: { format: 'mp4', url: videoUrl },
@@ -129,12 +153,7 @@ async function transcribeWithVolcengine({ apiKey, videoUrl }) {
 
     const queryResponse = await fetch(queryUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
-        'X-Api-Resource-Id': 'volc.seedasr.auc',
-        'X-Api-Request-Id': taskId
-      },
+      headers: volcengineHeaders({ auth, taskId }),
       body: JSON.stringify({})
     });
 
