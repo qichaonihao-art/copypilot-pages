@@ -16,7 +16,9 @@ export async function onRequestPost(context) {
       ok: false,
       message: `逐字稿接口内部错误：${error?.message || String(error)}`,
       upstreamUrl: error?.upstreamUrl || null,
-      status: error?.status || null
+      status: error?.status || null,
+      contentType: error?.contentType || null,
+      responsePreview: error?.responsePreview || null
     }, 500);
   }
 }
@@ -140,10 +142,16 @@ async function submitVolcengineTask({ auth, videoUrl }) {
     })
   });
 
-  if (!submitResponse.ok) {
-    const status = submitResponse.headers.get('X-Api-Status-Code') || submitResponse.status;
-    const message = submitResponse.headers.get('X-Api-Message') || '提交任务失败';
-    throw new Error(`火山ASR提交失败：${message}（状态码：${status}）`);
+  const apiStatus = submitResponse.headers.get('X-Api-Status-Code') || '';
+  const apiMessage = submitResponse.headers.get('X-Api-Message') || '';
+  if (!submitResponse.ok || (apiStatus && apiStatus !== '20000000')) {
+    const responseText = await submitResponse.text();
+    const error = new Error(`火山ASR提交失败：${apiMessage || submitResponse.statusText || '提交任务失败'}（状态码：${apiStatus || submitResponse.status}）`);
+    error.upstreamUrl = submitUrl;
+    error.status = apiStatus || submitResponse.status;
+    error.contentType = submitResponse.headers.get('Content-Type') || submitResponse.headers.get('content-type') || '';
+    error.responsePreview = responseText.slice(0, 300);
+    throw error;
   }
 
   return taskId;
