@@ -781,11 +781,16 @@ a {
 
 .hero {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--theme-soft) 76%, #ffffff) 0%, #ffffff 86%);
+    linear-gradient(180deg, var(--daily-bg, #0c1220) 0%, color-mix(in srgb, var(--daily-bg, #0c1220) 90%, var(--daily-accent, #3b82f6)) 100%);
   padding: 82px 6vw 58px;
   position: relative;
   overflow: hidden;
   text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .hero::before {
@@ -793,10 +798,10 @@ a {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(37, 99, 235, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(8, 145, 178, 0.11) 1px, transparent 1px),
-    linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.55) 47%, transparent 55%),
-    radial-gradient(circle at 0px 0px, rgba(37, 99, 235, 0.36) 1.5px, transparent 2px);
+    linear-gradient(var(--grid-line, rgba(59, 130, 246, 0.14)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line-2, rgba(37, 99, 235, 0.12)) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.35) 47%, transparent 55%),
+    radial-gradient(circle at 0px 0px, var(--grid-dot, rgba(59, 130, 246, 0.45)) 1.5px, transparent 2px);
   background-position: 0 0, 0 0, -35% 0, 0 0;
   background-size: 52px 52px, 52px 52px, 36% 100%, 52px 52px;
   mask-image: radial-gradient(ellipse at center, black 22%, transparent 76%);
@@ -811,10 +816,10 @@ a {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 16% 20%, rgba(37, 99, 235, 0.16) 0%, transparent 42%),
-    radial-gradient(ellipse at 82% 74%, rgba(8, 145, 178, 0.13) 0%, transparent 43%),
-    linear-gradient(90deg, transparent 0%, rgba(37, 99, 235, 0.08) 50%, transparent 100%),
-    radial-gradient(ellipse at 50% 100%, rgba(15, 23, 42, 0.08) 0%, transparent 58%);
+    radial-gradient(ellipse at 16% 20%, var(--glow-1, rgba(59, 130, 246, 0.18)) 0%, transparent 42%),
+    radial-gradient(ellipse at 82% 74%, var(--glow-2, rgba(37, 99, 235, 0.14)) 0%, transparent 43%),
+    linear-gradient(90deg, transparent 0%, var(--glow-3, rgba(59, 130, 246, 0.10)) 50%, transparent 100%),
+    radial-gradient(ellipse at 50% 100%, var(--glow-4, rgba(15, 23, 42, 0.12)) 0%, transparent 58%);
   pointer-events: none;
   z-index: 0;
   animation: floatSlow 14s ease-in-out infinite;
@@ -2096,4 +2101,141 @@ h1 {
   .site-footer nav.footer-tools {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Home page dark theme ── */
+.home-page .hero h1 {
+  color: #f1f5f9;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.home-page .hero .subtitle {
+  color: #94a3b8;
+}
+
+.home-page .hero .eyebrow {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  color: var(--daily-accent, #60a5fa);
+}
+
+.home-page .extract-box input {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 18px 54px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  color: #f1f5f9;
+}
+
+.home-page .extract-box input::placeholder {
+  color: #64748b;
+}
+
+.home-page .secondary-button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+}
+
+.home-page .secondary-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.home-page .home-type-tags button {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--daily-accent, #60a5fa);
+}
+
+.home-page .home-type-tags button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.20);
+}
+
+.home-page .result-card {
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.70), rgba(15, 23, 42, 0.70)) padding-box,
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)) border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.35);
+}
+
+.home-page .result-block {
+  background: rgba(15, 23, 42, 0.50);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.home-page .result-block > span {
+  color: var(--daily-accent, #60a5fa);
+}
+
+.home-page .result-block p {
+  color: #cbd5e1;
+}
+
+.home-page .result-text {
+  color: #e2e8f0;
+}
+
+.home-page .progress-card {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.home-page .progress-panel {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.home-page .progress-copy strong {
+  color: #93c5fd;
+}
+
+.home-page .progress-copy span {
+  color: #60a5fa;
+}
+
+.home-page .alert.error {
+  background: rgba(190, 18, 60, 0.12);
+  border-color: rgba(244, 63, 94, 0.25);
+  color: #fda4af;
+}
+
+.home-page .alert.success {
+  background: rgba(4, 120, 87, 0.12);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #6ee7b7;
+}
+
+.home-page .alert.info {
+  background: rgba(30, 58, 138, 0.15);
+  border-color: rgba(96, 165, 250, 0.25);
+  color: #93c5fd;
+}
+
+.home-page .tag-list button {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--daily-accent, #60a5fa);
+}
+
+.home-page .tag-list button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.home-page .image-card {
+  background: rgba(15, 23, 42, 0.50);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.home-page .video-result video {
+  background: #0f172a;
+}
+
+.home-page .section-title h2 {
+  color: #f1f5f9;
 }

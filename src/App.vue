@@ -2185,6 +2185,14 @@ watch(hasResultContent, async (val, oldVal) => {
   }
 });
 
+const DAILY_COLORS = [
+  { bg: '#0c1220', accent: '#3b82f6', grid: '59, 130, 246', grid2: '37, 99, 235', glow1: '59, 130, 246', glow2: '37, 99, 235' },
+  { bg: '#0f0a1e', accent: '#a855f7', grid: '168, 85, 247', grid2: '139, 92, 246', glow1: '168, 85, 247', glow2: '139, 92, 246' },
+  { bg: '#081c16', accent: '#10b981', grid: '16, 185, 129', grid2: '5, 150, 105', glow1: '16, 185, 129', glow2: '5, 150, 105' },
+  { bg: '#0a0e1f', accent: '#6366f1', grid: '99, 102, 241', grid2: '79, 70, 229', glow1: '99, 102, 241', glow2: '79, 70, 229' },
+  { bg: '#111318', accent: '#9ca3af', grid: '156, 163, 175', grid2: '107, 114, 128', glow1: '156, 163, 175', glow2: '107, 114, 128' },
+];
+
 const showBackToTop = ref(false);
 
 function onScroll() {
@@ -2195,7 +2203,23 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
+function applyDailyColor() {
+  const dayIndex = new Date().getDate() % 5;
+  const c = DAILY_COLORS[dayIndex];
+  const root = document.documentElement;
+  root.style.setProperty('--daily-bg', c.bg);
+  root.style.setProperty('--daily-accent', c.accent);
+  root.style.setProperty('--grid-line', `rgba(${c.grid}, 0.14)`);
+  root.style.setProperty('--grid-line-2', `rgba(${c.grid2}, 0.12)`);
+  root.style.setProperty('--grid-dot', `rgba(${c.grid}, 0.45)`);
+  root.style.setProperty('--glow-1', `rgba(${c.glow1}, 0.18)`);
+  root.style.setProperty('--glow-2', `rgba(${c.glow2}, 0.14)`);
+  root.style.setProperty('--glow-3', `rgba(${c.glow1}, 0.10)`);
+  root.style.setProperty('--glow-4', `rgba(15, 23, 42, 0.12)`);
+}
+
 onMounted(async () => {
+  applyDailyColor();
   await loadMe();
   trackEvent('page_view', { path: currentPath.value });
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -2207,7 +2231,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="site" :class="`theme-${pageTheme}`">
+  <div class="site" :class="[`theme-${pageTheme}`, { 'home-page': isHome }]">
     <div v-if="authOpen && !isPublicFreeMode" class="auth-overlay" @click.self="authOpen = false">
       <section class="auth-panel">
         <button class="auth-close" @click="authOpen = false">×</button>
