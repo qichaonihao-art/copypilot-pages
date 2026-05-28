@@ -10,14 +10,18 @@ function getAuth(env) {
 }
 
 function makeHeaders(auth, taskId) {
-  return {
+  const headers = {
     'Content-Type': 'application/json',
     'X-Api-Resource-Id': 'volc.seedasr.auc',
-    'X-Api-Request-Id': taskId,
-    ...(auth.mode === 'legacy'
-      ? { 'X-Api-App-Key': auth.appId, 'X-Api-Access-Key': auth.accessToken }
-      : { 'X-Api-Key': auth.apiKey })
+    'X-Api-Request-Id': taskId
   };
+  if (auth.mode === 'legacy') {
+    headers['X-Api-App-Key'] = auth.appId;
+    headers['X-Api-Access-Key'] = auth.accessToken;
+  } else {
+    headers['X-Api-Key'] = auth.apiKey;
+  }
+  return headers;
 }
 
 export async function onRequestGet() {
