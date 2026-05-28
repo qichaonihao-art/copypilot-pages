@@ -2022,11 +2022,14 @@ async function transcribeExtractedVideo() {
 
     // Step 2: Poll for result
     notice.value = '火山ASR 正在处理视频逐字稿...';
-    const maxAttempts = 30;
-    const pollInterval = 2000;
+    const maxWaitMs = 180000;
+    const startedAt = Date.now();
+    let attempt = 0;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    while (Date.now() - startedAt < maxWaitMs) {
+      const waitMs = attempt === 0 ? 0 : attempt < 6 ? 1000 : attempt < 18 ? 2000 : 3000;
+      if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
 
       const queryResponse = await fetch('/api/transcribe-query', {
         method: 'POST',
@@ -2041,9 +2044,10 @@ async function transcribeExtractedVideo() {
       }
 
       if (queryPayload.status === 'processing') {
-        notice.value = attempt < 2
+        notice.value = elapsedSeconds < 6
           ? '火山ASR 正在处理视频逐字稿...'
-          : `正在提取视频逐字稿（${Math.round(attempt * pollInterval / 1000)}秒）...`;
+          : `正在提取视频逐字稿（${elapsedSeconds}秒）...`;
+        attempt += 1;
         continue;
       }
 
@@ -2059,9 +2063,10 @@ async function transcribeExtractedVideo() {
       if (!String(queryPayload.status || '').startsWith('2')) {
         throw new Error(queryPayload.message || `转写状态异常：${queryPayload.status}`);
       }
+      attempt += 1;
     }
 
-    throw new Error('火山ASR转写超时（60秒），请稍后重试。');
+    throw new Error('火山ASR转写仍在处理中（已等待180秒），请稍后重试。');
   } catch (err) {
     error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
     notice.value = '';

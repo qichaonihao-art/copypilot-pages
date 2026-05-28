@@ -73,13 +73,13 @@ async function handleTranscribeLink(context) {
     }
   }
 
-  const videoUrl = getVideoLinks(sourceData)[0];
-  if (!videoUrl) return json({ ok: false, message: '已解析作品信息，但没有拿到可转写的视频源。', data: sourceData }, 502);
+  const media = pickTranscribeMedia(sourceData);
+  if (!media?.url) return json({ ok: false, message: '已解析作品信息，但没有拿到可转写的音视频源。', data: sourceData }, 502);
   if (!volcengineAuth.ok) return json({ ok: false, message: volcengineAuth.message, data: sourceData }, 500);
 
-  const taskId = await submitVolcengineTask({ auth: volcengineAuth, videoUrl });
+  const taskId = await submitVolcengineTask({ auth: volcengineAuth, mediaUrl: media.url, mediaFormat: media.format });
 
-  const data = { ...sourceData, publishedText, taskId, transcriptStatus: 'pending' };
+  const data = { ...sourceData, publishedText, taskId, transcriptStatus: 'pending', transcriptMediaFormat: media.format };
   await recordUsage(context, quota, { action: 'extract', sourceUrl: url || directVideoUrl, resultTitle: publishedText || sourceData?.title || null });
   const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
   return json({ ok: true, data }, 200, headers);
@@ -128,7 +128,7 @@ function volcengineHeaders({ auth, taskId, sequence }) {
   return headers;
 }
 
-async function submitVolcengineTask({ auth, videoUrl }) {
+async function submitVolcengineTask({ auth, mediaUrl, mediaFormat }) {
   const taskId = crypto.randomUUID();
   const submitUrl = 'https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit';
 
@@ -137,7 +137,7 @@ async function submitVolcengineTask({ auth, videoUrl }) {
     headers: volcengineHeaders({ auth, taskId, sequence: '-1' }),
     body: JSON.stringify({
       user: { uid: taskId },
-      audio: { format: 'mp4', url: videoUrl },
+      audio: { format: mediaFormat, url: mediaUrl },
       request: { model_name: 'bigmodel', enable_itn: true, enable_punc: true }
     })
   });
@@ -157,6 +157,32 @@ async function submitVolcengineTask({ auth, videoUrl }) {
   return taskId;
 }
 
+function pickTranscribeMedia(data) {
+  const audioUrl = getAudioLinks(data)[0];
+  if (audioUrl) return { url: audioUrl, format: getMediaFormat(audioUrl, 'mp3') };
+
+  const videoUrl = getVideoLinks(data)[0];
+  if (videoUrl) return { url: videoUrl, format: getMediaFormat(videoUrl, 'mp4') };
+
+  return null;
+}
+
+function getAudioLinks(data) {
+  const detail = data?.aweme_detail || data?.itemInfo?.itemStruct || data?.note || data || {};
+  const links = [
+    data?.audio_url,
+    data?.audioUrl,
+    data?.audio?.url,
+    data?.audio?.src,
+    detail?.audio_url,
+    detail?.audioUrl,
+    detail?.audio?.url,
+    detail?.audio?.src
+  ];
+  links.push(...findAudioUrlsDeep(data));
+  return [...new Set(links.map(normalizeMediaUrl).filter(isSupportedAudioUrl))];
+}
+
 function getVideoLinks(data) {
   const detail = data?.aweme_detail || data?.itemInfo?.itemStruct || data?.note || data || {};
   const video = detail.video || data?.video || {};
@@ -170,6 +196,43 @@ function getVideoLinks(data) {
     links.push(...sorted.map((item) => item.url));
   }
   return [...new Set(links)].filter(Boolean);
+}
+
+function findAudioUrlsDeep(value, path = '', depth = 0) {
+  if (!value || depth > 6) return [];
+  if (typeof value === 'string') {
+    if (/^https?:\/\//i.test(value) && /audio/i.test(path)) return [value];
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => findAudioUrlsDeep(item, `${path}.${index}`, depth + 1));
+  }
+  if (typeof value !== 'object') return [];
+
+  const links = [];
+  for (const [key, child] of Object.entries(value)) {
+    const nextPath = path ? `${path}.${key}` : key;
+    if (/music|cover|avatar|image|thumb|poster/i.test(nextPath)) continue;
+    links.push(...findAudioUrlsDeep(child, nextPath, depth + 1));
+  }
+  return links;
+}
+
+function normalizeMediaUrl(url) {
+  return String(url || '').replace(/\\u002F/g, '/').trim();
+}
+
+function isSupportedAudioUrl(url) {
+  const format = getMediaFormat(url, '');
+  return ['mp3', 'wav', 'ogg'].includes(format);
+}
+
+function getMediaFormat(url, fallback) {
+  const clean = normalizeMediaUrl(url).split('?')[0].toLowerCase();
+  const match = clean.match(/\.([a-z0-9]+)$/);
+  const ext = match?.[1] || '';
+  if (['mp3', 'wav', 'ogg', 'mp4'].includes(ext)) return ext;
+  return fallback;
 }
 
 function getDurationSeconds(data) {
