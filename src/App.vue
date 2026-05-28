@@ -891,7 +891,10 @@ const articleHtml = computed(() => {
 const hasResultContent = computed(() => result.value || videoLinks.value.length || imageLinks.value.length);
 const shouldShowVideoResult = computed(() => videoLinks.value.length && (isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
 const shouldShowImageResult = computed(() => imageLinks.value.length && (isHome.value || ['image', 'article'].includes(toolPage.value?.type)));
-const shouldShowVideoTextUnderPreview = computed(() => shouldShowVideoResult.value && toolPage.value?.type === 'video' && Boolean(resultText.value));
+const shouldShowVideoTextUnderPreview = computed(() => {
+  if (!shouldShowVideoResult.value || !resultText.value) return false;
+  return toolPage.value?.type === 'video' || (isHome.value && Boolean(result.value?.transcript));
+});
 const shouldShowMainTextBlock = computed(() => !shouldShowVideoTextUnderPreview.value);
 const shouldShowPublishedText = computed(() => {
   if (!publishedText.value) return false;
@@ -2833,10 +2836,6 @@ onUnmounted(() => {
                     备用源 {{ index + 2 }}
                   </a>
                 </div>
-                <div v-if="shouldShowVideoTextUnderPreview" class="video-transcript-panel">
-                  <span>{{ copyBlockTitle }}</span>
-                  <p class="result-text">{{ resultText }}</p>
-                </div>
               </div>
               <p v-else>未返回视频链接</p>
             </article>
@@ -2855,6 +2854,11 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
+            </article>
+
+            <article v-if="shouldShowVideoTextUnderPreview" class="result-block video-transcript-panel">
+              <span>{{ copyBlockTitle }}</span>
+              <p class="result-text">{{ resultText }}</p>
             </article>
           </div>
         </div>
