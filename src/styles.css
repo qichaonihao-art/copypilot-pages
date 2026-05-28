@@ -68,9 +68,30 @@ html {
 }
 
 body {
-  background:
-    linear-gradient(180deg, #f3f8ff 0%, #f7fbff 42%, #f7fbff 100%);
+  background: #ffffff;
   margin: 0;
+}
+
+.site {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--theme-soft, #eff6ff) 72%, #ffffff) 0%, color-mix(in srgb, var(--theme-soft, #eff6ff) 14%, #ffffff) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  position: relative;
+  z-index: 0;
+}
+
+.site::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8, 145, 178, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 0px 0px, rgba(37, 99, 235, 0.22) 1.5px, transparent 2px);
+  background-size: 52px 52px;
+  pointer-events: none;
+  z-index: 0;
 }
 
 button,
@@ -778,11 +799,10 @@ a {
 }
 
 .hero {
-  background:
-    linear-gradient(180deg, #eef6ff 0%, #f7fbff 100%);
+  background: transparent;
   padding: 82px 6vw 58px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   text-align: center;
   min-height: 100vh;
   display: flex;
@@ -791,32 +811,15 @@ a {
   justify-content: center;
 }
 
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(37, 99, 235, 0.10) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(8, 145, 178, 0.09) 1px, transparent 1px),
-    linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.55) 47%, transparent 55%),
-    radial-gradient(circle at 0px 0px, rgba(37, 99, 235, 0.36) 1.5px, transparent 2px);
-  background-position: 0 0, 0 0, -35% 0, 0 0;
-  background-size: 52px 52px, 52px 52px, 36% 100%, 52px 52px;
-  mask-image: radial-gradient(ellipse at center, black 22%, transparent 76%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 22%, transparent 76%);
-  pointer-events: none;
-  z-index: 0;
-}
-
 .hero::after {
   content: '';
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 16% 20%, rgba(37, 99, 235, 0.16) 0%, transparent 42%),
-    radial-gradient(ellipse at 82% 74%, rgba(8, 145, 178, 0.13) 0%, transparent 43%),
-    linear-gradient(90deg, transparent 0%, rgba(37, 99, 235, 0.08) 50%, transparent 100%),
-    radial-gradient(ellipse at 50% 100%, rgba(15, 23, 42, 0.08) 0%, transparent 58%);
+    radial-gradient(ellipse at 16% 20%, rgba(37, 99, 235, 0.14) 0%, transparent 42%),
+    radial-gradient(ellipse at 82% 74%, rgba(8, 145, 178, 0.11) 0%, transparent 43%),
+    linear-gradient(90deg, transparent 0%, rgba(37, 99, 235, 0.06) 50%, transparent 100%),
+    radial-gradient(ellipse at 50% 100%, rgba(15, 23, 42, 0.06) 0%, transparent 58%);
   pointer-events: none;
   z-index: 0;
 }
@@ -1150,7 +1153,7 @@ h1 {
 
 .result-section,
 .section {
-  background: #f7fbff;
+  background: transparent;
   padding: 56px 6vw;
 }
 
