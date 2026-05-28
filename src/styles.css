@@ -69,9 +69,7 @@ html {
 
 body {
   background:
-    radial-gradient(circle at 18% -10%, rgba(37, 99, 235, 0.10), transparent 34%),
-    radial-gradient(circle at 85% 8%, rgba(8, 145, 178, 0.08), transparent 30%),
-    #ffffff;
+    linear-gradient(180deg, #f3f8ff 0%, #f7fbff 42%, #f7fbff 100%);
   margin: 0;
 }
 
@@ -781,7 +779,7 @@ a {
 
 .hero {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--theme-soft) 76%, #ffffff) 0%, color-mix(in srgb, var(--theme-soft) 18%, #ffffff) 100%);
+    linear-gradient(180deg, #eef6ff 0%, #f7fbff 100%);
   padding: 82px 6vw 58px;
   position: relative;
   overflow: hidden;
@@ -808,7 +806,6 @@ a {
   -webkit-mask-image: radial-gradient(ellipse at center, black 22%, transparent 76%);
   pointer-events: none;
   z-index: 0;
-  animation: scanGlow 8s linear infinite;
 }
 
 .hero::after {
@@ -822,7 +819,6 @@ a {
     radial-gradient(ellipse at 50% 100%, rgba(15, 23, 42, 0.08) 0%, transparent 58%);
   pointer-events: none;
   z-index: 0;
-  animation: floatSlow 14s ease-in-out infinite;
 }
 
 .hero > * {
@@ -875,7 +871,7 @@ h1 {
   border-radius: 0;
   box-shadow: none;
   margin: 0 auto;
-  max-width: 1100px;
+  max-width: 980px;
   padding: 0;
   position: relative;
   text-align: center;
@@ -893,23 +889,23 @@ h1 {
 
 .extract-box input,
 .extract-box textarea {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  box-shadow:
-    0 18px 54px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d7e0ec;
+  border-radius: 999px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
   color: #111827;
   font-size: 17px;
-  min-height: 68px;
+  min-height: 58px;
   outline: none;
-  padding: 20px 22px;
+  padding: 15px 24px;
   width: 100%;
 }
 
 .extract-box textarea {
   field-sizing: content;
   line-height: 1.5;
+  max-height: 128px;
+  min-height: 58px;
   overflow: hidden;
   resize: none;
 }
@@ -918,8 +914,8 @@ h1 {
 .extract-box textarea:focus {
   border-color: var(--theme);
   box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--theme) 16%, transparent),
-    0 12px 30px color-mix(in srgb, var(--theme) 9%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--theme) 14%, transparent),
+    0 8px 28px rgba(15, 23, 42, 0.07);
 }
 
 .upload-extract-box {
@@ -1154,6 +1150,7 @@ h1 {
 
 .result-section,
 .section {
+  background: #f7fbff;
   padding: 56px 6vw;
 }
 
@@ -1529,6 +1526,21 @@ h1 {
 
 .video-actions button .spin {
   margin-right: 6px;
+}
+
+.video-transcript-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.video-transcript-panel > span {
+  color: var(--theme);
+  display: block;
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 8px;
 }
 
 .media-links a {

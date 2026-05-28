@@ -891,6 +891,8 @@ const articleHtml = computed(() => {
 const hasResultContent = computed(() => result.value || videoLinks.value.length || imageLinks.value.length);
 const shouldShowVideoResult = computed(() => videoLinks.value.length && (isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
 const shouldShowImageResult = computed(() => imageLinks.value.length && (isHome.value || ['image', 'article'].includes(toolPage.value?.type)));
+const shouldShowVideoTextUnderPreview = computed(() => shouldShowVideoResult.value && toolPage.value?.type === 'video' && Boolean(resultText.value));
+const shouldShowMainTextBlock = computed(() => !shouldShowVideoTextUnderPreview.value);
 const shouldShowPublishedText = computed(() => {
   if (!publishedText.value) return false;
   if (!isHome.value && !(toolPage.value?.type === 'text' && textMode.value === 'link')) return false;
@@ -2756,7 +2758,7 @@ onUnmounted(() => {
               <button :disabled="!articleCopyHtml" @click="copyArticleHtml">复制公众号格式</button>
             </div>
 
-            <article v-if="toolPage?.type !== 'article' || articleView === 'text'" class="result-block">
+            <article v-if="shouldShowMainTextBlock && (toolPage?.type !== 'article' || articleView === 'text')" class="result-block">
               <span>{{ copyBlockTitle }}</span>
               <p v-if="resultText && articleView === 'text'" class="result-text">{{ resultText }}</p>
               <p v-else>未识别到文案</p>
@@ -2823,6 +2825,10 @@ onUnmounted(() => {
                   <a v-for="(link, index) in videoLinks.slice(1)" :key="link" :href="link" download target="_blank" rel="noreferrer">
                     备用源 {{ index + 2 }}
                   </a>
+                </div>
+                <div v-if="shouldShowVideoTextUnderPreview" class="video-transcript-panel">
+                  <span>{{ copyBlockTitle }}</span>
+                  <p class="result-text">{{ resultText }}</p>
                 </div>
               </div>
               <p v-else>未返回视频链接</p>

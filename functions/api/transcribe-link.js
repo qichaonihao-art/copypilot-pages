@@ -186,19 +186,33 @@ async function transcribeWithVolcengine({ auth, videoUrl }) {
       continue;
     }
 
+    const transcript = readVolcengineTranscript(payload);
+    if (transcript) return transcript;
+
     const statusCode = queryResponse.headers.get('X-Api-Status-Code');
     if (statusCode === '20000001' || statusCode === '20000002') continue;
-
-    if (payload?.result?.text) {
-      return String(payload.result.text).trim();
-    }
-
     if (statusCode && !String(statusCode).startsWith('2')) {
       throw new Error(`火山ASR处理失败：状态码 ${statusCode}`);
     }
   }
 
   throw new Error('火山ASR转写超时，请稍后重试。');
+}
+
+function readVolcengineTranscript(payload) {
+  const text = payload?.result?.text || payload?.text || payload?.data?.result?.text;
+  if (text) return String(text).trim();
+
+  const utterances = payload?.result?.utterances || payload?.data?.result?.utterances;
+  if (Array.isArray(utterances)) {
+    return utterances
+      .map((item) => item?.text || '')
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+  }
+
+  return '';
 }
 
 function getVideoLinks(data) {
