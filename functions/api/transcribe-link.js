@@ -21,13 +21,19 @@ export async function onRequestPost(context) {
     }
 
     const tikhubKey = env.TIKHUB_API_KEY;
-    const volcengineKey = env.VOLCENGINE_API_KEY;
+    const tikhubBaseUrl = env.TIKHUB_BASE_URL || 'https://api.tikhub.io';
+
+    // Call TikHub
+    const tikhubRes = await fetch(
+      `${tikhubBaseUrl}/api/v1/douyin/web/fetch_one_video_by_share_url?share_url=${encodeURIComponent(url)}`,
+      { headers: { Authorization: `Bearer ${tikhubKey}` } }
+    );
 
     return jsonResponse({
       ok: true,
-      message: 'env checked',
-      hasTikhub: Boolean(tikhubKey),
-      hasVolcengine: Boolean(volcengineKey)
+      message: 'TikHub called',
+      tikhubStatus: tikhubRes.status,
+      tikhubOk: tikhubRes.ok
     });
 
   } catch (error) {
