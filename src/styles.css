@@ -861,10 +861,11 @@ h1 {
   border-radius: 0;
   box-shadow: none;
   margin: 0 auto;
-  max-width: 860px;
+  max-width: 100%;
   padding: 0;
   position: relative;
   text-align: center;
+  width: 980px;
 }
 
 .upload-extract-box::before {

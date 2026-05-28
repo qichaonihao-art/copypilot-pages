@@ -891,11 +891,15 @@ const articleHtml = computed(() => {
 const hasResultContent = computed(() => result.value || videoLinks.value.length || imageLinks.value.length);
 const shouldShowVideoResult = computed(() => videoLinks.value.length && (isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
 const shouldShowImageResult = computed(() => imageLinks.value.length && (isHome.value || ['image', 'article'].includes(toolPage.value?.type)));
+const hasVideoTranscript = computed(() => Boolean(result.value?.transcript && resultText.value));
 const shouldShowVideoTextUnderPreview = computed(() => {
-  if (!shouldShowVideoResult.value || !resultText.value) return false;
-  return toolPage.value?.type === 'video' || (isHome.value && Boolean(result.value?.transcript));
+  if (!shouldShowVideoResult.value || !hasVideoTranscript.value) return false;
+  return isHome.value || toolPage.value?.type === 'video' || toolPage.value?.type === 'text';
 });
-const shouldShowMainTextBlock = computed(() => !shouldShowVideoTextUnderPreview.value);
+const shouldShowMainTextBlock = computed(() => {
+  if (hasVideoTranscript.value && (isHome.value || toolPage.value?.type === 'video')) return false;
+  return true;
+});
 const shouldShowPublishedText = computed(() => {
   if (!publishedText.value) return false;
   if (!isHome.value && !(toolPage.value?.type === 'text' && textMode.value === 'link')) return false;
