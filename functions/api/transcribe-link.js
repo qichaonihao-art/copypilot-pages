@@ -3,7 +3,6 @@ import { recordUsage, requireQuota } from './_auth.js';
 import { getDefaultMaxVideoMinutes, getMembershipPlan } from './_plans.js';
 
 const FREE_MAX_TRANSCRIBE_SECONDS = 5 * 60;
-const MAX_TRANSCRIBE_SOURCE_BYTES = 80 * 1024 * 1024;
 
 export async function onRequestPost(context) {
   try {
@@ -25,9 +24,7 @@ async function handleTranscribeLink(context) {
   const { request, env } = context;
   const tikhubKey = env.TIKHUB_API_KEY;
   const tikhubBaseUrl = env.TIKHUB_BASE_URL || 'https://api.tikhub.io';
-  const siliconFlowKey = env.SILICONFLOW_API_KEY;
-  const siliconFlowBaseUrl = env.SILICONFLOW_BASE_URL || env.SILICONFLOW_API_BASE_URL || 'https://api.siliconflow.com';
-  const model = env.SILICONFLOW_TRANSCRIBE_MODEL || 'FunAudioLLM/SenseVoiceSmall';
+  const volcengineKey = env.VOLCENGINE_API_KEY;
 
   let body;
   try {
@@ -108,7 +105,7 @@ async function handleTranscribeLink(context) {
       }, 502);
     }
 
-    if (!siliconFlowKey) {
+    if (!volcengineKey) {
       return json({
         ok: false,
         message: '转写服务暂未配置完成。',
@@ -116,48 +113,12 @@ async function handleTranscribeLink(context) {
       }, 500);
     }
 
-    const mediaResponse = await fetch(videoUrl, {
-      headers: videoFetchHeaders(url || videoUrl)
-    });
-
-    if (!mediaResponse.ok) {
-      if (directVideoUrl && url && tikhubKey) {
-        return transcribeOriginalLink(context, {
-          url,
-          apiKey: tikhubKey,
-          baseUrl: tikhubBaseUrl,
-          siliconFlowKey,
-          siliconFlowBaseUrl,
-          model,
-          quota
-        });
-      }
-      return json({
-        ok: false,
-        message: `视频源下载失败，暂时无法转写视频本身文案。视频源返回 ${mediaResponse.status}。`,
-        upstreamUrl: sanitizeUpstreamUrl(videoUrl),
-        status: mediaResponse.status,
-        contentType: mediaResponse.headers.get('Content-Type') || mediaResponse.headers.get('content-type') || '',
-        responsePreview: await readResponsePreview(mediaResponse),
-        data: sourceData
-      }, 502);
-    }
-
-    assertMediaResponseSize(mediaResponse);
-    const mediaBlob = await mediaResponse.blob();
-    assertBlobSize(mediaBlob);
-    const transcriptPayload = await transcribeBlob({
-      apiKey: siliconFlowKey,
-      baseUrl: siliconFlowBaseUrl,
-      model,
-      blob: mediaBlob,
-      filename: 'source-video.mp4'
-    });
+    const transcriptText = await transcribeWithVolcengine({ apiKey: volcengineKey, videoUrl });
 
     const data = {
       ...sourceData,
-      text: transcriptPayload.text || '',
-      transcript: transcriptPayload.text || '',
+      text: transcriptText,
+      transcript: transcriptText,
       publishedText
     };
     await recordUsage(context, quota, {
@@ -183,117 +144,8 @@ async function handleTranscribeLink(context) {
   }
 }
 
-async function transcribeOriginalLink(context, { url, apiKey, baseUrl, siliconFlowKey, siliconFlowBaseUrl, model, quota }) {
-  const sourceData = await extractByUrl({ apiKey, baseUrl, url });
-  const publishedText = getPublishedText(sourceData);
-  const subtitleUrl = getSubtitleLinks(sourceData)[0];
-  if (subtitleUrl) {
-    const subtitleText = await fetchSubtitleText(subtitleUrl);
-    if (subtitleText) {
-      const data = {
-        ...sourceData,
-        text: subtitleText,
-        transcript: subtitleText,
-        publishedText,
-        transcriptSource: 'subtitle'
-      };
-      await recordUsage(context, quota, {
-        action: 'extract',
-        sourceUrl: url,
-        resultTitle: publishedText || sourceData?.title || null
-      });
-      const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
-      return json({ ok: true, data }, 200, headers);
-    }
-  }
-
-  const fallbackVideoUrl = getVideoLinks(sourceData)[0];
-  if (!fallbackVideoUrl) {
-    return json({ ok: false, message: '已重新解析作品，但仍没有拿到可转写的视频源。', data: sourceData }, 502);
-  }
-  if (!siliconFlowKey) return json({ ok: false, message: '转写服务暂未配置完成。', data: sourceData }, 500);
-
-  const mediaResponse = await fetch(fallbackVideoUrl, { headers: videoFetchHeaders(url) });
-  if (!mediaResponse.ok) {
-    return json({
-      ok: false,
-      message: `视频源下载失败，暂时无法转写视频本身文案。视频源返回 ${mediaResponse.status}。`,
-      upstreamUrl: sanitizeUpstreamUrl(fallbackVideoUrl),
-      status: mediaResponse.status,
-      contentType: mediaResponse.headers.get('Content-Type') || mediaResponse.headers.get('content-type') || '',
-      responsePreview: await readResponsePreview(mediaResponse),
-      data: sourceData
-    }, 502);
-  }
-
-  assertMediaResponseSize(mediaResponse);
-  const mediaBlob = await mediaResponse.blob();
-  assertBlobSize(mediaBlob);
-  const transcriptPayload = await transcribeBlob({
-    apiKey: siliconFlowKey,
-    baseUrl: siliconFlowBaseUrl,
-    model,
-    blob: mediaBlob,
-    filename: 'source-video.mp4'
-  });
-  const data = {
-    ...sourceData,
-    text: transcriptPayload.text || '',
-    transcript: transcriptPayload.text || '',
-    publishedText
-  };
-  await recordUsage(context, quota, {
-    action: 'extract',
-    sourceUrl: url,
-    resultTitle: publishedText || sourceData?.title || null
-  });
-  const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
-  return json({ ok: true, data }, 200, headers);
-}
-
 function isHttpUrl(value) {
   return /^https?:\/\//i.test(String(value || ''));
-}
-
-function videoFetchHeaders(sourceUrl = '') {
-  const text = String(sourceUrl || '').toLowerCase();
-  const referer = text.includes('xiaohongshu') || text.includes('xhslink')
-    ? 'https://www.xiaohongshu.com/'
-    : text.includes('tiktok')
-      ? 'https://www.tiktok.com/'
-      : text.includes('kuaishou')
-        ? 'https://www.kuaishou.com/'
-        : text.includes('bilibili') || text.includes('b23.tv')
-          ? 'https://www.bilibili.com/'
-          : text.includes('instagram')
-            ? 'https://www.instagram.com/'
-            : 'https://www.douyin.com/';
-
-  return {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
-    Referer: referer
-  };
-}
-
-function assertMediaResponseSize(response) {
-  const length = Number(response.headers.get('Content-Length') || response.headers.get('content-length') || 0);
-  if (length > MAX_TRANSCRIBE_SOURCE_BYTES) {
-    throw new Error(`视频源文件过大，暂时无法在当前接口内转写。文件大小约 ${Math.round(length / 1024 / 1024)}MB，当前限制 ${Math.round(MAX_TRANSCRIBE_SOURCE_BYTES / 1024 / 1024)}MB。`);
-  }
-}
-
-function assertBlobSize(blob) {
-  if (blob.size > MAX_TRANSCRIBE_SOURCE_BYTES) {
-    throw new Error(`视频源文件过大，暂时无法在当前接口内转写。文件大小约 ${Math.round(blob.size / 1024 / 1024)}MB，当前限制 ${Math.round(MAX_TRANSCRIBE_SOURCE_BYTES / 1024 / 1024)}MB。`);
-  }
-}
-
-async function readResponsePreview(response) {
-  try {
-    return (await response.clone().text()).slice(0, 300);
-  } catch {
-    return '';
-  }
 }
 
 async function getMaxTranscribeSeconds(context, quota) {
@@ -309,93 +161,82 @@ async function getMaxTranscribeSeconds(context, quota) {
   return getDefaultMaxVideoMinutes(plan) * 60;
 }
 
-async function transcribeBlob({ apiKey, baseUrl, model, blob, filename }) {
-  const form = new FormData();
-  form.set('model', model);
-  form.set('file', new File([blob], filename, { type: blob.type || 'video/mp4' }));
+async function transcribeWithVolcengine({ apiKey, videoUrl }) {
+  const taskId = crypto.randomUUID();
+  const submitUrl = 'https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit';
+  const queryUrl = 'https://openspeech.bytedance.com/api/v3/auc/bigmodel/query';
 
-  const endpoint = `${String(baseUrl || 'https://api.siliconflow.com').replace(/\/+$/, '')}/v1/audio/transcriptions`;
-  const response = await fetch(endpoint, {
+  // 1. Submit task
+  const submitResponse = await fetch(submitUrl, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`
+      'Content-Type': 'application/json',
+      'X-Api-Key': apiKey,
+      'X-Api-Resource-Id': 'volc.seedasr.auc',
+      'X-Api-Request-Id': taskId,
+      'X-Api-Sequence': '-1'
     },
-    body: form
+    body: JSON.stringify({
+      user: { uid: taskId },
+      audio: {
+        format: 'mp4',
+        url: videoUrl
+      },
+      request: {
+        model_name: 'bigmodel',
+        enable_itn: true,
+        enable_punc: true
+      }
+    })
   });
 
-  const payload = await readUpstreamPayload(response, 'SiliconFlow 转写接口', endpoint);
-  if (!response.ok) {
-    throw new Error(payload?.message || payload?.error?.message || '视频转写失败。');
+  if (!submitResponse.ok) {
+    const status = submitResponse.headers.get('X-Api-Status-Code') || submitResponse.status;
+    const message = submitResponse.headers.get('X-Api-Message') || '提交任务失败';
+    throw new Error(`火山ASR提交失败：${message}（状态码：${status}）`);
   }
 
-  const text = readTranscriptText(payload);
-  if (!text) throw new Error('转写服务返回了空文本，可能是视频没有清晰人声、音轨不可读，或当前视频源不适合转写。');
+  // 2. Poll for result
+  const maxAttempts = 30;
+  const pollInterval = 2000;
 
-  return { text, raw: payload };
-}
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
-async function readUpstreamPayload(response, label, upstreamUrl) {
-  const status = response.status;
-  const contentType = response.headers.get('Content-Type') || response.headers.get('content-type') || '';
-  const text = await response.text();
-  const preview = text.slice(0, 300);
-  const safeUrl = sanitizeUpstreamUrl(upstreamUrl);
-
-  if (!contentType.toLowerCase().includes('application/json')) {
-    throw upstreamError(`${label}没有返回 JSON。upstreamUrl：${safeUrl}；上游状态码：${status}；content-type：${contentType || '空'}；响应前300字：${preview || '空响应'}`, {
-      upstreamUrl: safeUrl,
-      status,
-      contentType,
-      responsePreview: preview || '空响应'
+    const queryResponse = await fetch(queryUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+        'X-Api-Resource-Id': 'volc.seedasr.auc',
+        'X-Api-Request-Id': taskId
+      },
+      body: JSON.stringify({})
     });
-  }
 
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw upstreamError(`${label}返回 JSON 解析失败：${error.message}。upstreamUrl：${safeUrl}；上游状态码：${status}；content-type：${contentType || '空'}；响应前300字：${preview || '空响应'}`, {
-      upstreamUrl: safeUrl,
-      status,
-      contentType,
-      responsePreview: preview || '空响应'
-    });
-  }
-}
+    if (!queryResponse.ok) continue;
 
-function upstreamError(message, details) {
-  const error = new Error(message);
-  Object.assign(error, details);
-  return error;
-}
-
-function sanitizeUpstreamUrl(value) {
-  const raw = String(value || '');
-  if (!raw) return '';
-  try {
-    const url = new URL(raw);
-    for (const key of url.searchParams.keys()) {
-      if (/key|token|secret|sign|signature|auth|authorization|credential/i.test(key)) {
-        url.searchParams.set(key, '***');
-      }
+    let payload;
+    try {
+      payload = await queryResponse.json();
+    } catch {
+      continue;
     }
-    return url.toString();
-  } catch {
-    return raw.replace(/(api[_-]?key|token|secret|sign|signature|authorization)=([^&\s]+)/gi, '$1=***');
-  }
-}
 
-function readTranscriptText(payload) {
-  const direct = payload?.text || payload?.data?.text || payload?.result?.text || payload?.data?.result?.text;
-  if (direct) return String(direct).trim();
-  const segments = payload?.segments || payload?.data?.segments || payload?.result?.segments;
-  if (Array.isArray(segments)) {
-    return segments
-      .map((item) => item?.text || item?.sentence || item?.value || '')
-      .filter(Boolean)
-      .join('\n')
-      .trim();
+    const statusCode = queryResponse.headers.get('X-Api-Status-Code');
+    if (statusCode === '20000001') continue; // still processing
+    if (statusCode === '20000002') continue; // in queue
+
+    if (payload?.result?.text) {
+      return String(payload.result.text).trim();
+    }
+
+    if (statusCode && !statusCode.startsWith('2')) {
+      throw new Error(`火山ASR处理失败：状态码 ${statusCode}`);
+    }
   }
-  return '';
+
+  throw new Error('火山ASR转写超时，请稍后重试。');
 }
 
 function getVideoLinks(data) {
