@@ -8,7 +8,6 @@ export async function onRequestPost(context) {
   try {
     const { request, env } = context;
 
-    // Step 1: parse body
     let body;
     try {
       body = await request.json();
@@ -21,7 +20,15 @@ export async function onRequestPost(context) {
       return jsonResponse({ ok: false, message: '缺少作品链接。' }, 400);
     }
 
-    return jsonResponse({ ok: true, message: 'body parsed', url });
+    const tikhubKey = env.TIKHUB_API_KEY;
+    const volcengineKey = env.VOLCENGINE_API_KEY;
+
+    return jsonResponse({
+      ok: true,
+      message: 'env checked',
+      hasTikhub: Boolean(tikhubKey),
+      hasVolcengine: Boolean(volcengineKey)
+    });
 
   } catch (error) {
     return jsonResponse({ ok: false, message: error?.message || String(error) }, 500);
