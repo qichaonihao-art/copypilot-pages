@@ -95,16 +95,36 @@ async function getMaxTranscribeSeconds(context, quota) {
 }
 
 function getVolcengineAuth(env) {
-  const apiKey = String(env.VOLCENGINE_API_KEY || '').trim();
+  const apiKey = String(
+    env.VOLCENGINE_API_KEY ||
+    env.VOLC_API_KEY ||
+    env.ARK_API_KEY ||
+    ''
+  ).trim();
   if (apiKey) return { ok: true, mode: 'apiKey', apiKey };
 
-  const appId = String(env.VOLCENGINE_APP_ID || env.VOLCENGINE_APP_KEY || '').trim();
-  const accessToken = String(env.VOLCENGINE_ACCESS_TOKEN || env.VOLCENGINE_ACCESS_KEY || env.VOLCENGINE_TOKEN || '').trim();
+  const appId = String(
+    env.VOLCENGINE_APP_ID ||
+    env.VOLCENGINE_APPID ||
+    env.VOLCENGINE_APP_KEY ||
+    env.VOLC_APP_ID ||
+    env.APP_ID ||
+    env.APPID ||
+    ''
+  ).trim();
+  const accessToken = String(
+    env.VOLCENGINE_ACCESS_TOKEN ||
+    env.VOLCENGINE_ACCESS_KEY ||
+    env.VOLCENGINE_TOKEN ||
+    env.VOLC_ACCESS_TOKEN ||
+    env.ACCESS_TOKEN ||
+    ''
+  ).trim();
   if (appId && accessToken) return { ok: true, mode: 'legacy', appId, accessToken };
 
   return {
     ok: false,
-    message: '转写服务暂未配置完成。新版控制台请配置 VOLCENGINE_API_KEY；旧版控制台请配置 VOLCENGINE_APP_ID 和 VOLCENGINE_ACCESS_TOKEN。'
+    message: `转写服务暂未配置完成。新版控制台请配置 VOLCENGINE_API_KEY；旧版控制台请配置 VOLCENGINE_APP_ID 和 VOLCENGINE_ACCESS_TOKEN。当前读取状态：apiKey=${Boolean(apiKey)}，appId=${Boolean(appId)}，accessToken=${Boolean(accessToken)}。`
   };
 }
 
