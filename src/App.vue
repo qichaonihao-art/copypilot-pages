@@ -16,6 +16,7 @@ import {
   Loader2,
   Sparkles,
   Upload,
+  Zap,
 } from 'lucide-vue-next';
 import { seoPageByPath } from './seo-pages.js';
 
@@ -33,6 +34,7 @@ const articleTemplate = ref('clean');
 const articleDraftHtml = ref('');
 const articleRewriteLoading = ref(false);
 const videoTranscriptLoading = ref(false);
+const transcriptMode = ref('');
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -1976,7 +1978,7 @@ async function copyArticleHtml() {
   });
 }
 
-async function transcribeExtractedVideo() {
+async function transcribeExtractedVideo(mode = 'precise') {
   const videoUrl = videoLinks.value[0];
   if (!videoUrl) {
     error.value = '请先提取到可用的视频链接。';
@@ -1985,18 +1987,25 @@ async function transcribeExtractedVideo() {
 
   const cleanUrl = extractUrl(url.value);
   const durationSeconds = getResultDurationSeconds(result.value);
+  transcriptMode.value = mode;
+  videoTranscriptLoading.value = true;
+  error.value = '';
+
+  if (mode === 'fast') {
+    notice.value = '正在下载视频并快速转写，预计10-20秒...';
+  } else {
+    notice.value = '正在提交视频逐字稿任务...';
+  }
+
   trackEvent('extract_start', {
     inputType: 'extracted_video',
     platform: cleanUrl ? detectPlatformFromUrl(cleanUrl) : 'direct_video',
     targetType: 'video_transcript',
+    mode,
     durationBucket: durationBucket(durationSeconds)
   });
-  videoTranscriptLoading.value = true;
-  error.value = '';
-  notice.value = '正在提交视频逐字稿任务...';
 
   try {
-    // Step 1: Submit transcription task
     const response = await fetch('/api/transcribe-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2005,11 +2014,21 @@ async function transcribeExtractedVideo() {
         videoUrl,
         title: resultTitle.value,
         publishedText: publishedText.value,
-        durationSeconds
+        durationSeconds,
+        mode
       })
     });
     const payload = await readJsonResponse(response, '逐字稿接口');
     if (!response.ok || !payload.ok) throw new Error(formatApiError(payload, '视频逐字稿提取失败'));
+
+    if (mode === 'fast') {
+      const text = payload.data?.transcript || payload.data?.text || '';
+      result.value = { ...result.value, ...payload.data, transcript: text, text };
+      notice.value = '视频逐字稿快速提取完成。';
+      trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'fast', hasTranscript: Boolean(text) });
+      await loadMe();
+      return;
+    }
 
     const taskId = payload.data?.taskId;
     if (!taskId) throw new Error('服务端未返回任务ID。');
@@ -2020,7 +2039,6 @@ async function transcribeExtractedVideo() {
       publishedText: payload.data?.publishedText || publishedText.value
     };
 
-    // Step 2: Poll for result
     notice.value = '火山ASR 正在处理视频逐字稿...';
     const maxWaitMs = 300000;
     const startedAt = Date.now();
@@ -2054,9 +2072,8 @@ async function transcribeExtractedVideo() {
       if (queryPayload.status === 'completed' && queryPayload.transcript) {
         result.value = { ...result.value, transcript: queryPayload.transcript, text: queryPayload.transcript };
         notice.value = '视频逐字稿已提取完成。';
-        trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', hasTranscript: true });
+        trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'precise', hasTranscript: true });
         await loadMe();
-        videoTranscriptLoading.value = false;
         return;
       }
 
@@ -2073,10 +2090,12 @@ async function transcribeExtractedVideo() {
     trackEvent('extract_failed', {
       inputType: 'extracted_video',
       targetType: 'video_transcript',
+      mode,
       reason: String(error.value || '').slice(0, 90)
     });
   } finally {
     videoTranscriptLoading.value = false;
+    transcriptMode.value = '';
   }
 }
 
@@ -2834,10 +2853,17 @@ onUnmounted(() => {
                 <video :src="previewVideoUrl" controls playsinline preload="metadata"></video>
                 <div class="video-actions">
                   <a :href="previewVideoUrl" download="video.mp4">下载视频</a>
-                  <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo">
-                    <Loader2 v-if="videoTranscriptLoading" class="spin" :size="16" />
-                    {{ videoTranscriptLoading ? '提取中...' : '提取逐字稿' }}
-                  </button>
+                  <div class="transcript-mode-buttons">
+                    <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo('fast')">
+                      <Zap v-if="!(videoTranscriptLoading && transcriptMode === 'fast')" :size="15" />
+                      <Loader2 v-if="videoTranscriptLoading && transcriptMode === 'fast'" class="spin" :size="15" />
+                      {{ videoTranscriptLoading && transcriptMode === 'fast' ? '快速提取中...' : '快速提取' }}
+                    </button>
+                    <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo('precise')">
+                      <Loader2 v-if="videoTranscriptLoading && transcriptMode === 'precise'" class="spin" :size="15" />
+                      {{ videoTranscriptLoading && transcriptMode === 'precise' ? '精确提取中...' : '精确提取' }}
+                    </button>
+                  </div>
                   <button @click="copyText(videoLinks[0])">复制视频链接</button>
                 </div>
                 <div v-if="videoLinks.length > 1" class="media-links">
