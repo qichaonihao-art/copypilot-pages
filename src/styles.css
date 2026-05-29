@@ -787,11 +787,11 @@ a {
 
 .hero {
   background: transparent;
-  padding: 82px 6vw 58px;
+  padding: 24px 6vw 40px;
   position: relative;
   overflow: visible;
   text-align: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 68px);
   display: flex;
   flex-direction: column;
   align-items: center;
