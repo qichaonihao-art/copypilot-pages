@@ -72,10 +72,13 @@ body {
   margin: 0;
 }
 
+html {
+  background: var(--theme-soft, #eff6ff);
+}
+
 .site {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--theme-soft, #eff6ff) 72%, #ffffff) 0%, color-mix(in srgb, var(--theme-soft, #eff6ff) 14%, #ffffff) 100%);
-  background-attachment: fixed;
   min-height: 100vh;
   position: relative;
   z-index: 0;
