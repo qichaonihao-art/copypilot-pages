@@ -73,14 +73,14 @@ async function handleTranscribeLink(context) {
     }
   }
 
-  const media = await pickBestTranscribeMedia(sourceData);
-  if (!media?.url) return json({ ok: false, message: '已解析作品信息，但所有音视频链接均无法访问（可能被平台限制）。建议下载视频后使用「本地视频转文字」功能。', data: sourceData }, 502);
-
   const mode = String(body.mode || '').trim() || 'precise';
 
   if (mode === 'fast') {
-    return await handleFastTranscribe(context, { media, sourceData, publishedText, sourceUrl: url, directVideoUrl, quota });
+    return await handleFastTranscribe(context, { sourceData, publishedText, sourceUrl: url, directVideoUrl, quota });
   }
+
+  const media = await pickBestTranscribeMedia(sourceData);
+  if (!media?.url) return json({ ok: false, message: '已解析作品信息，但所有音视频链接均无法访问（可能被平台限制）。建议下载视频后使用「本地视频转文字」功能。', data: sourceData }, 502);
 
   if (!volcengineAuth.ok) return json({ ok: false, message: volcengineAuth.message, data: sourceData }, 500);
 
@@ -373,7 +373,7 @@ function getPublishedText(data) {
   return data?.description || data?.desc || data?.caption || data?.aweme_detail?.desc || data?.itemInfo?.itemStruct?.desc || data?.note?.desc || '';
 }
 
-async function handleFastTranscribe(context, { media, sourceData, publishedText, sourceUrl, directVideoUrl, quota }) {
+async function handleFastTranscribe(context, { sourceData, publishedText, sourceUrl, directVideoUrl, quota }) {
   const { env } = context;
   const apiKey = env.SILICONFLOW_API_KEY;
   const model = env.SILICONFLOW_TRANSCRIBE_MODEL || 'FunAudioLLM/SenseVoiceSmall';
@@ -381,29 +381,63 @@ async function handleFastTranscribe(context, { media, sourceData, publishedText,
     return json({ ok: false, message: '快速转写服务暂未配置（缺少 SILICONFLOW_API_KEY）。' }, 500);
   }
 
-  const referer = sourceUrl || directVideoUrl || 'https://www.douyin.com/';
-  const downloadRes = await fetch(media.url, {
-    redirect: 'follow',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Accept': '*/*',
-      'Referer': referer
+  // 直接取第一个视频URL（不预检，和原作者保持一致）
+  const videoUrl = directVideoUrl || getVideoLinks(sourceData)[0];
+  if (!videoUrl) {
+    return json({ ok: false, message: '已解析作品信息，但没有拿到可转写的视频源。' }, 502);
+  }
+
+  try {
+    // 直接下载视频
+    const mediaResponse = await fetch(videoUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
+        Referer: 'https://www.douyin.com/'
+      }
+    });
+
+    if (!mediaResponse.ok) {
+      return json({
+        ok: false,
+        message: '视频源下载失败，暂时无法转写视频本身文案。',
+        status: mediaResponse.status,
+        data: sourceData
+      }, 502);
     }
-  });
 
-  if (!downloadRes.ok) {
-    return json({ ok: false, message: '视频下载失败，可能受平台防盗链限制。建议下载后使用本地转文字功能，或切换「精确提取」模式。', data: sourceData }, 502);
+    const mediaBlob = await mediaResponse.blob();
+
+    const transcriptPayload = await transcribeBlob({
+      apiKey,
+      model,
+      blob: mediaBlob,
+      filename: 'source-video.mp4'
+    });
+
+    const data = {
+      ...sourceData,
+      text: transcriptPayload.text || '',
+      transcript: transcriptPayload.text || '',
+      publishedText,
+      transcriptSource: 'siliconflow-fast'
+    };
+    await recordUsage(context, quota, {
+      action: 'extract',
+      sourceUrl: sourceUrl || directVideoUrl,
+      resultTitle: publishedText || sourceData?.title || null
+    });
+    const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
+
+    return json({ ok: true, data }, 200, headers);
+  } catch (error) {
+    return json({ ok: false, message: error.message || '快速提取失败，建议切换「精确提取」模式。' }, 502);
   }
+}
 
-  const blob = await downloadRes.blob();
-  const maxBytes = 100 * 1024 * 1024;
-  if (blob.size > maxBytes) {
-    return json({ ok: false, message: '视频文件超过100MB，不支持快速提取，请使用「精确提取」模式。', data: sourceData }, 400);
-  }
-
+async function transcribeBlob({ apiKey, model, blob, filename }) {
   const form = new FormData();
   form.set('model', model);
-  form.set('file', blob, `media.${media.format}`);
+  form.set('file', new File([blob], filename, { type: blob.type || 'video/mp4' }));
 
   const response = await fetch('https://api.siliconflow.cn/v1/audio/transcriptions', {
     method: 'POST',
@@ -413,18 +447,13 @@ async function handleFastTranscribe(context, { media, sourceData, publishedText,
 
   const payload = await safeJson(response);
   if (!response.ok) {
-    return json({
-      ok: false,
-      message: payload?.message || payload?.error?.message || '快速转写失败。',
-      detail: payload?.code || payload?.status || null
-    }, 502);
+    throw new Error(payload?.message || payload?.error?.message || '视频转写失败。');
   }
 
-  const text = payload.text || payload.data?.text || '';
-  const data = { ...sourceData, publishedText, transcript: text, text, transcriptSource: 'siliconflow-fast' };
-  await recordUsage(context, quota, { action: 'extract', sourceUrl: sourceUrl || directVideoUrl, resultTitle: publishedText || sourceData?.title || null });
-  const headers = quota.setCookie ? { 'Set-Cookie': quota.setCookie } : {};
-  return json({ ok: true, data }, 200, headers);
+  return {
+    text: payload.text || payload.data?.text || '',
+    raw: payload
+  };
 }
 
 async function safeJson(response) {
