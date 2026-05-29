@@ -843,7 +843,7 @@ h1 {
   font-size: clamp(36px, 5.8vw, 64px);
   line-height: 1.08;
   margin: 0 auto 18px;
-  max-width: 980px;
+  max-width: 650px;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
@@ -869,7 +869,7 @@ h1 {
   padding: 0;
   position: relative;
   text-align: center;
-  width: min(980px, 100%);
+  width: min(650px, 100%);
 }
 
 .upload-extract-box::before {
