@@ -2642,7 +2642,7 @@ onUnmounted(() => {
       </section>
 
       <section v-else class="hero">
-        <p class="eyebrow">
+        <p v-if="toolPage?.badge" class="eyebrow">
           <component
             :is="
               toolPage?.type === 'image'
@@ -2655,7 +2655,7 @@ onUnmounted(() => {
             "
             :size="18"
           />
-          {{ toolPage?.badge || uiText.heroBadge }}
+          {{ toolPage.badge }}
         </p>
         <h1>{{ toolPage?.title || uiText.heroTitle }}</h1>
         <p class="subtitle">
