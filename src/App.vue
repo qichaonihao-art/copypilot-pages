@@ -2736,16 +2736,21 @@ onUnmounted(() => {
           </p>
         </section>
 
+        <!-- 功能标签已隐藏，保持主界面简洁 -->
+        <!--
         <div v-if="isHome" class="home-type-tags">
           <button @click="navigate('/video')"><FileVideo :size="17" /> {{ uiText.nav[1] }}</button>
           <button @click="navigate('/text')"><Captions :size="17" /> {{ uiText.nav[2] }}</button>
           <button @click="navigate('/image-text')"><Image :size="17" /> {{ uiText.nav[3] }}</button>
           <button @click="navigate('/article')"><FileText :size="17" /> {{ uiText.nav[4] }}</button>
         </div>
+        -->
 
+        <!--
         <div v-if="activeSeoPage?.keywords?.length" class="keyword-strip">
           <span v-for="keyword in activeSeoPage.keywords" :key="keyword">{{ keyword }}</span>
         </div>
+        -->
       </section>
 
       <section v-if="loading && extractProgress" id="extract-progress" class="result-section progress-section" aria-live="polite">
