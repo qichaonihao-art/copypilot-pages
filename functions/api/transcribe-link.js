@@ -73,8 +73,8 @@ async function handleTranscribeLink(context) {
     }
   }
 
-  const media = pickTranscribeMedia(sourceData);
-  if (!media?.url) return json({ ok: false, message: '已解析作品信息，但没有拿到可转写的音视频源。', data: sourceData }, 502);
+  const media = await pickBestTranscribeMedia(sourceData);
+  if (!media?.url) return json({ ok: false, message: '已解析作品信息，但所有音视频链接均无法访问（可能被平台限制）。建议下载视频后使用「本地视频转文字」功能。', data: sourceData }, 502);
   if (!volcengineAuth.ok) return json({ ok: false, message: volcengineAuth.message, data: sourceData }, 500);
 
   const taskId = await submitVolcengineTask({ auth: volcengineAuth, mediaUrl: media.url, mediaFormat: media.format });
@@ -157,14 +157,52 @@ async function submitVolcengineTask({ auth, mediaUrl, mediaFormat }) {
   return taskId;
 }
 
-function pickTranscribeMedia(data) {
-  const audioUrl = getAudioLinks(data)[0];
-  if (audioUrl) return { url: audioUrl, format: getMediaFormat(audioUrl, 'mp3') };
+async function pickBestTranscribeMedia(data) {
+  // 优先尝试音频（体积小，火山引擎下载更快）
+  const audioLinks = getAudioLinks(data);
+  for (const url of audioLinks.slice(0, 4)) {
+    const accessible = await checkMediaUrlAccessible(url);
+    if (accessible) return { url, format: getMediaFormat(url, 'mp3') };
+  }
 
-  const videoUrl = getVideoLinks(data)[0];
-  if (videoUrl) return { url: videoUrl, format: getMediaFormat(videoUrl, 'mp4') };
+  // 音频都不可用，fallback 到视频
+  const videoLinks = getVideoLinks(data);
+  for (const url of videoLinks.slice(0, 5)) {
+    const accessible = await checkMediaUrlAccessible(url);
+    if (accessible) return { url, format: getMediaFormat(url, 'mp4') };
+  }
 
   return null;
+}
+
+async function checkMediaUrlAccessible(url) {
+  try {
+    const headRes = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*'
+      }
+    });
+    if (headRes.ok) return true;
+    // 405 = Method Not Allowed，某些CDN不支持HEAD，用Range GET兜底
+    if (headRes.status === 405) {
+      const rangeRes = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          'Range': 'bytes=0-0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*'
+        }
+      });
+      return rangeRes.ok || rangeRes.status === 206;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 function getAudioLinks(data) {
@@ -224,14 +262,14 @@ function normalizeMediaUrl(url) {
 
 function isSupportedAudioUrl(url) {
   const format = getMediaFormat(url, '');
-  return ['mp3', 'wav', 'ogg'].includes(format);
+  return ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'mp4'].includes(format);
 }
 
 function getMediaFormat(url, fallback) {
   const clean = normalizeMediaUrl(url).split('?')[0].toLowerCase();
   const match = clean.match(/\.([a-z0-9]+)$/);
   const ext = match?.[1] || '';
-  if (['mp3', 'wav', 'ogg', 'mp4'].includes(ext)) return ext;
+  if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'mp4'].includes(ext)) return ext;
   return fallback;
 }
 
