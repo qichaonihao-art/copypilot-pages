@@ -899,6 +899,7 @@ const shouldShowVideoTextUnderPreview = computed(() => {
   return isHome.value || toolPage.value?.type === 'video' || toolPage.value?.type === 'text';
 });
 const shouldShowMainTextBlock = computed(() => {
+  if (hasVideoTranscript.value && (isHome.value || toolPage.value?.type === 'video')) return false;
   return true;
 });
 const shouldShowPublishedText = computed(() => {
@@ -2755,8 +2756,8 @@ onUnmounted(() => {
             <button class="secondary-button" @click="paste"><Clipboard :size="18" /> {{ uiText.paste }}</button>
             <button class="secondary-button" @click="clearInput">{{ uiText.clear }}</button>
           </div>
-          <p v-if="error" class="alert error">{{ error }}</p>
-          <p v-if="notice" class="alert success">{{ notice }}</p>
+          <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
+          <p v-if="notice && !videoTranscriptLoading" class="alert success">{{ notice }}</p>
         </section>
 
         <section v-else class="upload-extract-box" aria-label="文件上传提取">
@@ -2948,6 +2949,16 @@ onUnmounted(() => {
             <article v-if="shouldShowVideoTextUnderPreview" class="result-block video-transcript-panel">
               <span>{{ copyBlockTitle }}</span>
               <p class="result-text">{{ resultText }}</p>
+            </article>
+
+            <article v-if="videoTranscriptLoading && shouldShowVideoResult" class="result-block video-transcript-panel">
+              <span>正在提取逐字稿</span>
+              <p class="result-text">{{ notice }}</p>
+            </article>
+
+            <article v-if="error && !videoTranscriptLoading && shouldShowVideoResult" class="result-block video-transcript-panel">
+              <span>提取失败</span>
+              <p class="result-text" style="color: #be123c;">{{ error }}</p>
             </article>
           </div>
         </div>
