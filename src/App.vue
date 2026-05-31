@@ -2027,6 +2027,10 @@ async function transcribeExtractedVideo(mode = 'precise') {
       notice.value = '视频逐字稿快速提取完成。';
       trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'fast', hasTranscript: Boolean(text) });
       await loadMe();
+      await nextTick();
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
       return;
     }
 
@@ -2074,6 +2078,10 @@ async function transcribeExtractedVideo(mode = 'precise') {
         notice.value = '视频逐字稿已提取完成。';
         trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'precise', hasTranscript: true });
         await loadMe();
+        await nextTick();
+        setTimeout(() => {
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }, 100);
         return;
       }
 
