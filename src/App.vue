@@ -2045,39 +2045,79 @@ async function transcribeExtractedVideo(mode = 'precise') {
       publishedText: payload.data?.publishedText || publishedText.value
     };
 
-    notice.value = '火山ASR 正在处理视频逐字稿...';
-    const maxWaitMs = 300000;
+    notice.value = '已提交任务，正在排队处理...';
+    const maxWaitMs = 60000; // 60 秒总超时
     const startedAt = Date.now();
     let attempt = 0;
+    let consecutiveErrors = 0;
+
+    function getWaitMs(a) {
+      if (a === 0) return 0;
+      if (a < 6) return 1000;      // 前 5 次：1 秒一次
+      if (a < 16) return 2000;     // 第 6-15 次：2 秒一次
+      if (a < 31) return 3000;     // 第 16-30 次：3 秒一次
+      return 5000;                 // 30 次以后：5 秒一次
+    }
+
+    function getProgressNotice(elapsed) {
+      if (elapsed < 5) return '已提交任务，正在排队处理...';
+      if (elapsed < 15) return '正在下载视频到识别服务器...';
+      if (elapsed < 30) return '正在进行语音转写（大型模型处理中）...';
+      if (elapsed < 50) return '正在整理文字稿，即将完成...';
+      if (elapsed < 60) return `处理时间较长，预计还需 ${Math.max(5, 60 - elapsed)} 秒，请稍候...`;
+      return '处理时间较长，正在最后尝试...';
+    }
 
     while (Date.now() - startedAt < maxWaitMs) {
-      const waitMs = attempt === 0 ? 0 : attempt < 10 ? 1000 : attempt < 25 ? 2000 : 3000;
+      const waitMs = getWaitMs(attempt);
       if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
       const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+      notice.value = getProgressNotice(elapsedSeconds);
 
-      const queryResponse = await fetch('/api/transcribe-query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId })
-      });
-      const queryPayload = await readJsonResponse(queryResponse, '查询逐字稿');
+      let queryResponse;
+      let queryPayload;
+      try {
+        queryResponse = await fetch('/api/transcribe-query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId })
+        });
+        queryPayload = await readJsonResponse(queryResponse, '查询逐字稿');
+        consecutiveErrors = 0;
+      } catch (networkErr) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 3) {
+          throw new Error(`查询失败，连续 ${consecutiveErrors} 次网络错误：${networkErr.message || '网络异常'}`);
+        }
+        notice.value = `查询遇到网络波动，正在重试（${consecutiveErrors}/3）...`;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        attempt += 1;
+        continue;
+      }
 
       if (!queryResponse.ok || !queryPayload.ok) {
-        if (queryPayload.status === 'processing') continue;
-        throw new Error(queryPayload.message || '查询逐字稿失败');
+        if (queryPayload.status === 'processing') {
+          attempt += 1;
+          continue;
+        }
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 3) {
+          throw new Error(queryPayload.message || `查询逐字稿失败（状态：${queryPayload.status || queryResponse.status}）`);
+        }
+        notice.value = `查询遇到异常，正在重试（${consecutiveErrors}/3）...`;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        attempt += 1;
+        continue;
       }
 
       if (queryPayload.status === 'processing') {
-        notice.value = elapsedSeconds < 6
-          ? '火山ASR 正在处理视频逐字稿...'
-          : `正在提取视频逐字稿（${elapsedSeconds}秒）...`;
         attempt += 1;
         continue;
       }
 
       if (queryPayload.status === 'completed' && queryPayload.transcript) {
         result.value = { ...result.value, transcript: queryPayload.transcript, text: queryPayload.transcript };
-        notice.value = '视频逐字稿已提取完成。';
+        notice.value = '✓ 视频逐字稿已提取完成';
         trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'precise', hasTranscript: true });
         await loadMe();
         await nextTick();
@@ -2090,13 +2130,17 @@ async function transcribeExtractedVideo(mode = 'precise') {
         return;
       }
 
+      if (queryPayload.status === 'completed' && !queryPayload.transcript) {
+        throw new Error('火山ASR 返回完成状态，但未返回文案内容，可能视频中没有语音。');
+      }
+
       if (!String(queryPayload.status || '').startsWith('2')) {
         throw new Error(queryPayload.message || `转写状态异常：${queryPayload.status}`);
       }
       attempt += 1;
     }
 
-    throw new Error('火山ASR转写仍在处理中（已等待5分钟），可能因视频较长或当前排队较多，建议稍后重试或使用「本地视频转文字」功能。');
+    throw new Error('火山ASR 处理超时（已等待60秒），当前任务未完成。请点击「精确提取」按钮再次尝试，或稍后重试。');
   } catch (err) {
     error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
     notice.value = '';
@@ -2871,18 +2915,6 @@ onUnmounted(() => {
                 <video :src="previewVideoUrl" controls playsinline preload="metadata"></video>
                 <div class="video-actions">
                   <a :href="previewVideoUrl" download="video.mp4">下载视频</a>
-                  <div class="transcript-mode-buttons">
-                    <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo('fast')">
-                      <Zap v-if="!(videoTranscriptLoading && transcriptMode === 'fast')" :size="15" />
-                      <Loader2 v-if="videoTranscriptLoading && transcriptMode === 'fast'" class="spin" :size="15" />
-                      {{ videoTranscriptLoading && transcriptMode === 'fast' ? '快速提取中...' : '快速提取' }}
-                    </button>
-                    <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo('precise')">
-                      <Loader2 v-if="videoTranscriptLoading && transcriptMode === 'precise'" class="spin" :size="15" />
-                      {{ videoTranscriptLoading && transcriptMode === 'precise' ? '精确提取中...' : '精确提取' }}
-                    </button>
-                  </div>
-                  <button @click="copyText(videoLinks[0])">复制视频链接</button>
                 </div>
                 <div v-if="videoLinks.length > 1" class="media-links">
                   <a v-for="(link, index) in videoLinks.slice(1)" :key="link" :href="link" download target="_blank" rel="noreferrer">
