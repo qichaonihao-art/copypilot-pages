@@ -405,7 +405,23 @@ async function handleFastTranscribe(context, { sourceData, publishedText, source
       }, 502);
     }
 
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
+    const contentLength = mediaResponse.headers.get('content-length');
+    if (contentLength && Number(contentLength) > MAX_FILE_SIZE) {
+      return json({
+        ok: false,
+        message: `视频文件约 ${Math.round(Number(contentLength) / 1024 / 1024)}MB，超过快速提取上限（20MB），请使用「精确提取」模式或选择更短的视频。`
+      }, 413);
+    }
+
     const mediaBlob = await mediaResponse.blob();
+
+    if (mediaBlob.size > MAX_FILE_SIZE) {
+      return json({
+        ok: false,
+        message: `视频文件 ${Math.round(mediaBlob.size / 1024 / 1024)}MB 超过快速提取上限（20MB），请使用「精确提取」模式或选择更短的视频。`
+      }, 413);
+    }
 
     const transcriptPayload = await transcribeBlob({
       apiKey,

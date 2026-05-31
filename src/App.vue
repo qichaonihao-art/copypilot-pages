@@ -899,7 +899,6 @@ const shouldShowVideoTextUnderPreview = computed(() => {
   return isHome.value || toolPage.value?.type === 'video' || toolPage.value?.type === 'text';
 });
 const shouldShowMainTextBlock = computed(() => {
-  if (hasVideoTranscript.value && (isHome.value || toolPage.value?.type === 'video')) return false;
   return true;
 });
 const shouldShowPublishedText = computed(() => {
@@ -2029,7 +2028,10 @@ async function transcribeExtractedVideo(mode = 'precise') {
       await loadMe();
       await nextTick();
       setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        const resultSection = document.getElementById('extract-result');
+        if (resultSection) {
+          resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }, 100);
       return;
     }
@@ -2080,7 +2082,10 @@ async function transcribeExtractedVideo(mode = 'precise') {
         await loadMe();
         await nextTick();
         setTimeout(() => {
-          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+          const resultSection = document.getElementById('extract-result');
+          if (resultSection) {
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         }, 100);
         return;
       }
