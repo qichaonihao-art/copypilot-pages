@@ -2915,6 +2915,10 @@ onUnmounted(() => {
                 <video :src="previewVideoUrl" controls playsinline preload="metadata"></video>
                 <div class="video-actions">
                   <a :href="previewVideoUrl" download="video.mp4">下载视频</a>
+                  <button :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo('precise')">
+                    <Loader2 v-if="videoTranscriptLoading && transcriptMode === 'precise'" class="spin" :size="15" />
+                    {{ videoTranscriptLoading && transcriptMode === 'precise' ? '提取中...' : '提取逐字稿' }}
+                  </button>
                 </div>
                 <div v-if="videoLinks.length > 1" class="media-links">
                   <a v-for="(link, index) in videoLinks.slice(1)" :key="link" :href="link" download target="_blank" rel="noreferrer">
