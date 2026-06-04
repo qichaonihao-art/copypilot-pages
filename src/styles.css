@@ -1715,6 +1715,30 @@ h1 {
   padding: 0 6px;
 }
 
+.video-transcript-head button.transcript-copy-trigger {
+  align-items: center;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #1d4ed8;
+  box-shadow: 0 9px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
+  display: inline-flex;
+  gap: 7px;
+  padding: 0 14px;
+}
+
+.video-transcript-head button.transcript-copy-trigger:hover {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
+  border-color: #1e40af;
+  box-shadow: 0 11px 26px rgba(37, 99, 235, 0.28);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.transcript-copy-trigger svg {
+  color: #dbeafe;
+  flex: 0 0 auto;
+}
+
 .modal-backdrop {
   align-items: center;
   background: rgba(15, 23, 42, 0.38);

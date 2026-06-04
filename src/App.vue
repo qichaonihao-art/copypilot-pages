@@ -3050,7 +3050,10 @@ onUnmounted(() => {
                     <span>最近提取记录</span>
                     <em>{{ transcriptHistory.length }}</em>
                   </button>
-                  <button type="button" @click="copyText(resultText)">一键复制文案</button>
+                  <button type="button" class="transcript-copy-trigger" @click="copyText(resultText)">
+                    <Copy :size="17" />
+                    <span>一键复制文案</span>
+                  </button>
                 </div>
               </div>
               <p class="result-text">{{ resultText }}</p>
