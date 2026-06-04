@@ -1653,6 +1653,7 @@ h1 {
   gap: 8px;
   min-height: 42px;
   padding: 9px 10px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, background 0.18s ease;
 }
 
 .transcript-progress-step strong {
@@ -1661,9 +1662,14 @@ h1 {
 }
 
 .transcript-progress-step.active {
-  border-color: var(--theme-border);
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(135deg, var(--theme), color-mix(in srgb, var(--theme) 35%, #ffffff)) border-box;
+  border-color: transparent;
   color: var(--theme);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme) 12%, transparent);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--theme) 18%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--theme) 10%, transparent);
 }
 
 .transcript-progress-step.done {
@@ -1681,6 +1687,21 @@ h1 {
   height: 20px;
   justify-content: center;
   width: 20px;
+}
+
+.transcript-progress-step.active .transcript-progress-dot {
+  background: var(--theme);
+  border-color: var(--theme);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--theme) 14%, transparent),
+    0 0 18px color-mix(in srgb, var(--theme) 42%, transparent);
+  color: #fff;
+}
+
+.transcript-progress-step.done .transcript-progress-dot {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
 }
 
 .transcript-progress-message {

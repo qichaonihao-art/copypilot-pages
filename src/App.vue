@@ -2014,6 +2014,8 @@ async function transcribeExtractedVideo(mode = 'precise') {
   error.value = '';
 
   notice.value = '正在连接阿里云工作台...';
+  await nextTick();
+  scrollToTranscriptProgress();
 
   trackEvent('extract_start', {
     inputType: 'extracted_video',
@@ -2055,13 +2057,6 @@ async function transcribeExtractedVideo(mode = 'precise') {
       hasTranscript: true
     });
     await loadMe();
-    await nextTick();
-    setTimeout(() => {
-      const resultSection = document.getElementById('extract-result');
-      if (resultSection) {
-        resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
     return;
   } catch (err) {
     error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
@@ -2076,6 +2071,15 @@ async function transcribeExtractedVideo(mode = 'precise') {
     videoTranscriptLoading.value = false;
     transcriptMode.value = '';
   }
+}
+
+function scrollToTranscriptProgress() {
+  setTimeout(() => {
+    const progressPanel = document.getElementById('video-transcript-progress');
+    if (progressPanel) {
+      progressPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 80);
 }
 
 function normalizeTranscriptStage(stage) {
@@ -2962,7 +2966,7 @@ onUnmounted(() => {
               <p class="result-text">{{ resultText }}</p>
             </article>
 
-            <article v-if="videoTranscriptLoading && shouldShowVideoResult" class="result-block video-transcript-panel">
+            <article v-if="videoTranscriptLoading && shouldShowVideoResult" id="video-transcript-progress" class="result-block video-transcript-panel">
               <span>正在提取逐字稿</span>
               <div class="transcript-progress-list" aria-live="polite">
                 <div
