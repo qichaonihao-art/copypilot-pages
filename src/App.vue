@@ -11,6 +11,7 @@ import {
   FileAudio,
   FileText,
   FileVideo,
+  History,
   Image,
   Link,
   Loader2,
@@ -3044,8 +3045,10 @@ onUnmounted(() => {
               <div class="video-transcript-head">
                 <span>{{ copyBlockTitle }}</span>
                 <div class="video-transcript-tools">
-                  <button type="button" @click="transcriptHistoryOpen = true">
-                    最近提取记录
+                  <button type="button" class="transcript-history-trigger" @click="transcriptHistoryOpen = true">
+                    <History :size="17" />
+                    <span>最近提取记录</span>
+                    <em>{{ transcriptHistory.length }}</em>
                   </button>
                   <button type="button" @click="copyText(resultText)">一键复制文案</button>
                 </div>

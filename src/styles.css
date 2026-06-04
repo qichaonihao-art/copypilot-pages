@@ -1677,6 +1677,44 @@ h1 {
   color: #166534;
 }
 
+.video-transcript-head button.transcript-history-trigger {
+  align-items: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #34d399;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.14);
+  color: #065f46;
+  display: inline-flex;
+  gap: 7px;
+  padding: 0 9px 0 12px;
+}
+
+.video-transcript-head button.transcript-history-trigger:hover {
+  background: #ecfdf5;
+  border-color: #10b981;
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.2);
+  transform: translateY(-1px);
+}
+
+.transcript-history-trigger svg {
+  color: #059669;
+  flex: 0 0 auto;
+}
+
+.transcript-history-trigger em {
+  align-items: center;
+  background: #10b981;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  height: 20px;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 6px;
+}
+
 .modal-backdrop {
   align-items: center;
   background: rgba(15, 23, 42, 0.38);
