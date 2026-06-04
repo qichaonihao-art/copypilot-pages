@@ -1788,6 +1788,18 @@ h1 {
   padding: 0 10px;
 }
 
+.transcript-history-actions button.danger {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.transcript-history-actions button.danger:hover {
+  background: #ffe4e6;
+  border-color: #fb7185;
+  color: #9f1239;
+}
+
 .transcript-history-empty {
   margin: 12px 0 0;
 }

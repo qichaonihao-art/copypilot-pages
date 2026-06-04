@@ -2144,6 +2144,13 @@ function applyTranscriptHistoryItem(item) {
   nextTick(() => scrollToTranscriptResult());
 }
 
+function deleteTranscriptHistoryItem(item) {
+  if (!item?.id) return;
+  const next = transcriptHistory.value.filter((historyItem) => historyItem.id !== item.id);
+  transcriptHistory.value = next;
+  localStorage.setItem('copypilot-transcript-history', JSON.stringify(next));
+}
+
 function formatHistoryTime(timestamp) {
   const date = new Date(timestamp || Date.now());
   return date.toLocaleString('zh-CN', {
@@ -3192,8 +3199,8 @@ onUnmounted(() => {
               <span>{{ formatHistoryTime(item.createdAt) }} · {{ item.text.length }} 字</span>
             </div>
             <div class="transcript-history-actions">
-              <button type="button" @click="applyTranscriptHistoryItem(item); transcriptHistoryOpen = false">查看</button>
               <button type="button" @click="copyText(item.text)">复制</button>
+              <button type="button" class="danger" @click="deleteTranscriptHistoryItem(item)">删除</button>
             </div>
           </article>
         </div>
