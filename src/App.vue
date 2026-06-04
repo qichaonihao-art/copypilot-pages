@@ -3037,32 +3037,13 @@ onUnmounted(() => {
               <div class="video-transcript-head">
                 <span>{{ copyBlockTitle }}</span>
                 <div class="video-transcript-tools">
-                  <button type="button" @click="transcriptHistoryOpen = !transcriptHistoryOpen">
-                    最近20次
+                  <button type="button" @click="transcriptHistoryOpen = true">
+                    最近提取记录
                   </button>
                   <button type="button" @click="copyText(resultText)">一键复制文案</button>
                 </div>
               </div>
               <p class="result-text">{{ resultText }}</p>
-              <div v-if="transcriptHistoryOpen" class="transcript-history-panel">
-                <div class="transcript-history-head">
-                  <strong>最近提取记录</strong>
-                  <span>{{ transcriptHistory.length }} / 20</span>
-                </div>
-                <div v-if="transcriptHistory.length" class="transcript-history-list">
-                  <article v-for="item in transcriptHistory" :key="item.id" class="transcript-history-item">
-                    <div>
-                      <strong>{{ item.title }}</strong>
-                      <span>{{ formatHistoryTime(item.createdAt) }} · {{ item.text.length }} 字</span>
-                    </div>
-                    <div class="transcript-history-actions">
-                      <button type="button" @click="applyTranscriptHistoryItem(item)">查看</button>
-                      <button type="button" @click="copyText(item.text)">复制</button>
-                    </div>
-                  </article>
-                </div>
-                <p v-else class="transcript-history-empty">还没有逐字稿记录。</p>
-              </div>
             </article>
 
             <article v-if="videoTranscriptLoading && shouldShowVideoResult" id="video-transcript-progress" class="result-block video-transcript-panel">
@@ -3194,6 +3175,31 @@ onUnmounted(() => {
         </nav>
       </div>
     </footer>
+
+    <div v-if="transcriptHistoryOpen" class="modal-backdrop" @click.self="transcriptHistoryOpen = false">
+      <section class="transcript-history-modal" role="dialog" aria-modal="true" aria-label="最近提取记录">
+        <div class="transcript-history-head">
+          <div>
+            <strong>最近提取记录</strong>
+            <span>{{ transcriptHistory.length }} / 20</span>
+          </div>
+          <button type="button" class="modal-close-button" @click="transcriptHistoryOpen = false">关闭</button>
+        </div>
+        <div v-if="transcriptHistory.length" class="transcript-history-list">
+          <article v-for="item in transcriptHistory" :key="item.id" class="transcript-history-item">
+            <div>
+              <strong>{{ item.title }}</strong>
+              <span>{{ formatHistoryTime(item.createdAt) }} · {{ item.text.length }} 字</span>
+            </div>
+            <div class="transcript-history-actions">
+              <button type="button" @click="applyTranscriptHistoryItem(item); transcriptHistoryOpen = false">查看</button>
+              <button type="button" @click="copyText(item.text)">复制</button>
+            </div>
+          </article>
+        </div>
+        <p v-else class="transcript-history-empty">还没有逐字稿记录。</p>
+      </section>
+    </div>
 
     <button
       v-show="showBackToTop"

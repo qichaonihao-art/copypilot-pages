@@ -1677,12 +1677,27 @@ h1 {
   color: #166534;
 }
 
-.transcript-history-panel {
+.modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.38);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 80;
+}
+
+.transcript-history-modal {
   background: #fff;
   border: 1px solid #dbe4f0;
-  border-radius: 8px;
-  margin-top: 14px;
-  padding: 12px;
+  border-radius: 10px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22);
+  max-height: min(680px, calc(100vh - 48px));
+  max-width: 760px;
+  overflow: hidden;
+  padding: 16px;
+  width: min(760px, 100%);
 }
 
 .transcript-history-head,
@@ -1699,17 +1714,39 @@ h1 {
   padding-bottom: 10px;
 }
 
+.transcript-history-head > div {
+  display: grid;
+  gap: 4px;
+}
+
 .transcript-history-head span {
   color: #64748b;
   font-size: 12px;
   font-weight: 800;
 }
 
+.modal-close-button {
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.modal-close-button:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
 .transcript-history-list {
   display: grid;
   gap: 8px;
   margin-top: 10px;
-  max-height: 420px;
+  max-height: min(540px, calc(100vh - 170px));
   overflow: auto;
 }
 
