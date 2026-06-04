@@ -1649,23 +1649,110 @@ h1 {
   margin-bottom: 0;
 }
 
-.video-transcript-head button {
+.video-transcript-tools {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.video-transcript-head button,
+.transcript-history-actions button {
   background: #ecfdf5;
   border: 1px solid #86efac;
   border-radius: 8px;
   color: #047857;
   cursor: pointer;
-  flex: 0 0 auto;
   font-size: 13px;
   font-weight: 900;
   min-height: 34px;
   padding: 0 12px;
 }
 
-.video-transcript-head button:hover {
+.video-transcript-head button:hover,
+.transcript-history-actions button:hover {
   background: #dcfce7;
   border-color: #22c55e;
   color: #166534;
+}
+
+.transcript-history-panel {
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.transcript-history-head,
+.transcript-history-item {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.transcript-history-head {
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+  padding-bottom: 10px;
+}
+
+.transcript-history-head span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.transcript-history-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.transcript-history-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.transcript-history-item > div:first-child {
+  min-width: 0;
+}
+
+.transcript-history-item strong {
+  color: #1e293b;
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transcript-history-item span,
+.transcript-history-empty {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.transcript-history-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.transcript-history-actions button {
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.transcript-history-empty {
+  margin: 12px 0 0;
 }
 
 .transcript-progress-list {
@@ -2343,6 +2430,17 @@ h1 {
 
   .transcript-progress-list {
     grid-template-columns: 1fr;
+  }
+
+  .video-transcript-head,
+  .transcript-history-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .video-transcript-tools,
+  .transcript-history-actions {
+    justify-content: flex-start;
   }
 
   .header-actions {

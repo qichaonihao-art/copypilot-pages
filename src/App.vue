@@ -37,6 +37,8 @@ const videoTranscriptLoading = ref(false);
 const transcriptMode = ref('');
 const transcriptProgress = ref({ stage: 'idle', message: '' });
 const transcriptLiveText = ref('');
+const transcriptHistoryOpen = ref(false);
+const transcriptHistory = ref(loadTranscriptHistory());
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -2049,6 +2051,11 @@ async function transcribeExtractedVideo(mode = 'precise') {
       text,
       publishedText: payload.data?.publishedText || publishedText.value
     };
+    saveTranscriptHistoryItem({
+      title: resultTitle.value,
+      url: cleanUrl,
+      text
+    });
     notice.value = '✓ 视频逐字稿已提取完成';
     trackEvent('extract_success', {
       inputType: 'extracted_video',
@@ -2091,6 +2098,60 @@ function scrollToTranscriptResult() {
       transcriptPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, 120);
+}
+
+function loadTranscriptHistory() {
+  try {
+    const items = JSON.parse(localStorage.getItem('copypilot-transcript-history') || '[]');
+    return Array.isArray(items) ? items.slice(0, 20) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTranscriptHistoryItem(item) {
+  const normalized = {
+    id: item.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    createdAt: item.createdAt || Date.now(),
+    title: String(item.title || '未识别到标题').slice(0, 80),
+    url: String(item.url || ''),
+    text: String(item.text || '')
+  };
+  if (!normalized.text.trim()) return;
+
+  const dedupeKey = normalized.url || normalized.title;
+  const next = [
+    normalized,
+    ...transcriptHistory.value.filter((historyItem) => {
+      const historyKey = historyItem.url || historyItem.title;
+      return historyKey !== dedupeKey;
+    })
+  ].slice(0, 20);
+  transcriptHistory.value = next;
+  localStorage.setItem('copypilot-transcript-history', JSON.stringify(next));
+}
+
+function applyTranscriptHistoryItem(item) {
+  if (!item?.text) return;
+  result.value = {
+    ...result.value,
+    title: item.title || resultTitle.value,
+    transcript: item.text,
+    text: item.text,
+    publishedText: publishedText.value
+  };
+  notice.value = '已载入历史逐字稿。';
+  nextTick(() => scrollToTranscriptResult());
+}
+
+function formatHistoryTime(timestamp) {
+  const date = new Date(timestamp || Date.now());
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 function normalizeTranscriptStage(stage) {
@@ -2975,9 +3036,33 @@ onUnmounted(() => {
             <article v-if="shouldShowVideoTextUnderPreview" id="video-transcript-result" class="result-block video-transcript-panel">
               <div class="video-transcript-head">
                 <span>{{ copyBlockTitle }}</span>
-                <button type="button" @click="copyText(resultText)">一键复制文案</button>
+                <div class="video-transcript-tools">
+                  <button type="button" @click="transcriptHistoryOpen = !transcriptHistoryOpen">
+                    最近20次
+                  </button>
+                  <button type="button" @click="copyText(resultText)">一键复制文案</button>
+                </div>
               </div>
               <p class="result-text">{{ resultText }}</p>
+              <div v-if="transcriptHistoryOpen" class="transcript-history-panel">
+                <div class="transcript-history-head">
+                  <strong>最近提取记录</strong>
+                  <span>{{ transcriptHistory.length }} / 20</span>
+                </div>
+                <div v-if="transcriptHistory.length" class="transcript-history-list">
+                  <article v-for="item in transcriptHistory" :key="item.id" class="transcript-history-item">
+                    <div>
+                      <strong>{{ item.title }}</strong>
+                      <span>{{ formatHistoryTime(item.createdAt) }} · {{ item.text.length }} 字</span>
+                    </div>
+                    <div class="transcript-history-actions">
+                      <button type="button" @click="applyTranscriptHistoryItem(item)">查看</button>
+                      <button type="button" @click="copyText(item.text)">复制</button>
+                    </div>
+                  </article>
+                </div>
+                <p v-else class="transcript-history-empty">还没有逐字稿记录。</p>
+              </div>
             </article>
 
             <article v-if="videoTranscriptLoading && shouldShowVideoResult" id="video-transcript-progress" class="result-block video-transcript-panel">
