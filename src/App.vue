@@ -1991,11 +1991,7 @@ async function transcribeExtractedVideo(mode = 'precise') {
   videoTranscriptLoading.value = true;
   error.value = '';
 
-  if (mode === 'fast') {
-    notice.value = '正在下载视频并快速转写，预计10-20秒...';
-  } else {
-    notice.value = '正在提交视频逐字稿任务...';
-  }
+  notice.value = '正在调用阿里云工作台提取视频逐字稿...';
 
   trackEvent('extract_start', {
     inputType: 'extracted_video',
@@ -2006,142 +2002,49 @@ async function transcribeExtractedVideo(mode = 'precise') {
   });
 
   try {
-    const response = await fetch('/api/transcribe-link', {
+    const response = await fetch('/api/aliyun-transcribe-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: cleanUrl,
         videoUrl,
+        videoUrls: videoLinks.value,
+        sourceData: result.value,
         title: resultTitle.value,
         publishedText: publishedText.value,
         durationSeconds,
         mode
       })
     });
-    const payload = await readJsonResponse(response, '逐字稿接口');
+    const payload = await readJsonResponse(response, '阿里云逐字稿接口');
     if (!response.ok || !payload.ok) throw new Error(formatApiError(payload, '视频逐字稿提取失败'));
 
-    if (mode === 'fast') {
-      const text = payload.data?.transcript || payload.data?.text || '';
-      result.value = { ...result.value, ...payload.data, transcript: text, text };
-      notice.value = '视频逐字稿快速提取完成。';
-      trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'fast', hasTranscript: Boolean(text) });
-      await loadMe();
-      await nextTick();
-      setTimeout(() => {
-        const resultSection = document.getElementById('extract-result');
-        if (resultSection) {
-          resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-      return;
-    }
-
-    const taskId = payload.data?.taskId;
-    if (!taskId) throw new Error('服务端未返回任务ID。');
+    const text = payload.data?.transcript || payload.data?.text || '';
+    if (!text) throw new Error('阿里云逐字稿接口已返回，但没有识别到文案内容。');
 
     result.value = {
       ...result.value,
       ...payload.data,
+      transcript: text,
+      text,
       publishedText: payload.data?.publishedText || publishedText.value
     };
-
-    notice.value = '已提交任务，正在排队处理...';
-    const maxWaitMs = 60000; // 60 秒总超时
-    const startedAt = Date.now();
-    let attempt = 0;
-    let consecutiveErrors = 0;
-
-    function getWaitMs(a) {
-      if (a === 0) return 0;
-      if (a < 6) return 1000;      // 前 5 次：1 秒一次
-      if (a < 16) return 2000;     // 第 6-15 次：2 秒一次
-      if (a < 31) return 3000;     // 第 16-30 次：3 秒一次
-      return 5000;                 // 30 次以后：5 秒一次
-    }
-
-    function getProgressNotice(elapsed) {
-      if (elapsed < 5) return '已提交任务，正在排队处理...';
-      if (elapsed < 15) return '正在下载视频到识别服务器...';
-      if (elapsed < 30) return '正在进行语音转写（大型模型处理中）...';
-      if (elapsed < 50) return '正在整理文字稿，即将完成...';
-      if (elapsed < 60) return `处理时间较长，预计还需 ${Math.max(5, 60 - elapsed)} 秒，请稍候...`;
-      return '处理时间较长，正在最后尝试...';
-    }
-
-    while (Date.now() - startedAt < maxWaitMs) {
-      const waitMs = getWaitMs(attempt);
-      if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
-      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
-      notice.value = getProgressNotice(elapsedSeconds);
-
-      let queryResponse;
-      let queryPayload;
-      try {
-        queryResponse = await fetch('/api/transcribe-query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId })
-        });
-        queryPayload = await readJsonResponse(queryResponse, '查询逐字稿');
-        consecutiveErrors = 0;
-      } catch (networkErr) {
-        consecutiveErrors += 1;
-        if (consecutiveErrors >= 3) {
-          throw new Error(`查询失败，连续 ${consecutiveErrors} 次网络错误：${networkErr.message || '网络异常'}`);
-        }
-        notice.value = `查询遇到网络波动，正在重试（${consecutiveErrors}/3）...`;
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        attempt += 1;
-        continue;
+    notice.value = '✓ 视频逐字稿已提取完成';
+    trackEvent('extract_success', {
+      inputType: 'extracted_video',
+      targetType: 'video_transcript',
+      mode: 'aliyun-qwen',
+      hasTranscript: true
+    });
+    await loadMe();
+    await nextTick();
+    setTimeout(() => {
+      const resultSection = document.getElementById('extract-result');
+      if (resultSection) {
+        resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-
-      if (!queryResponse.ok || !queryPayload.ok) {
-        if (queryPayload.status === 'processing') {
-          attempt += 1;
-          continue;
-        }
-        consecutiveErrors += 1;
-        if (consecutiveErrors >= 3) {
-          throw new Error(queryPayload.message || `查询逐字稿失败（状态：${queryPayload.status || queryResponse.status}）`);
-        }
-        notice.value = `查询遇到异常，正在重试（${consecutiveErrors}/3）...`;
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        attempt += 1;
-        continue;
-      }
-
-      if (queryPayload.status === 'processing') {
-        attempt += 1;
-        continue;
-      }
-
-      if (queryPayload.status === 'completed' && queryPayload.transcript) {
-        result.value = { ...result.value, transcript: queryPayload.transcript, text: queryPayload.transcript };
-        notice.value = '✓ 视频逐字稿已提取完成';
-        trackEvent('extract_success', { inputType: 'extracted_video', targetType: 'video_transcript', mode: 'precise', hasTranscript: true });
-        await loadMe();
-        await nextTick();
-        setTimeout(() => {
-          const resultSection = document.getElementById('extract-result');
-          if (resultSection) {
-            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 100);
-        return;
-      }
-
-      if (queryPayload.status === 'completed' && !queryPayload.transcript) {
-        throw new Error('火山ASR 返回完成状态，但未返回文案内容，可能视频中没有语音。');
-      }
-
-      if (!String(queryPayload.status || '').startsWith('2')) {
-        throw new Error(queryPayload.message || `转写状态异常：${queryPayload.status}`);
-      }
-      attempt += 1;
-    }
-
-    throw new Error('火山ASR 处理超时（已等待60秒），当前任务未完成。请点击「精确提取」按钮再次尝试，或稍后重试。');
+    }, 100);
+    return;
   } catch (err) {
     error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
     notice.value = '';
