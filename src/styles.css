@@ -1567,6 +1567,26 @@ h1 {
   transform: translateY(-1px);
 }
 
+.video-actions button.video-transcript-action {
+  background: linear-gradient(135deg, #7c3aed 0%, #2563eb 58%, #06b6d4 100%);
+  border-color: rgba(37, 99, 235, 0.72);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.24);
+  color: #fff;
+  gap: 7px;
+  padding: 0 18px;
+}
+
+.video-actions button.video-transcript-action:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6d28d9 0%, #1d4ed8 58%, #0891b2 100%);
+  box-shadow: 0 13px 30px rgba(37, 99, 235, 0.32);
+  color: #fff;
+}
+
+.video-actions button.video-transcript-action svg {
+  color: #e0f2fe;
+  flex: 0 0 auto;
+}
+
 .video-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
