@@ -1694,14 +1694,13 @@ h1 {
   border-radius: 10px;
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22);
   max-height: min(680px, calc(100vh - 48px));
-  max-width: 760px;
+  max-width: 960px;
   overflow: hidden;
   padding: 16px;
-  width: min(760px, 100%);
+  width: min(960px, 100%);
 }
 
-.transcript-history-head,
-.transcript-history-item {
+.transcript-history-head {
   align-items: center;
   display: flex;
   gap: 12px;
@@ -1754,6 +1753,8 @@ h1 {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  display: grid;
+  gap: 8px;
   padding: 10px;
 }
 
@@ -1765,9 +1766,8 @@ h1 {
   color: #1e293b;
   display: block;
   font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .transcript-history-item span,
@@ -1779,8 +1779,18 @@ h1 {
 
 .transcript-history-actions {
   display: flex;
-  flex: 0 0 auto;
   gap: 6px;
+  justify-content: flex-end;
+}
+
+.transcript-history-text {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.75;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .transcript-history-actions button {

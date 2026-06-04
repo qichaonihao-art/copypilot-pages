@@ -3198,6 +3198,7 @@ onUnmounted(() => {
               <strong>{{ item.title }}</strong>
               <span>{{ formatHistoryTime(item.createdAt) }} · {{ item.text.length }} 字</span>
             </div>
+            <p class="transcript-history-text">{{ item.text }}</p>
             <div class="transcript-history-actions">
               <button type="button" @click="copyText(item.text)">复制</button>
               <button type="button" class="danger" @click="deleteTranscriptHistoryItem(item)">删除</button>
