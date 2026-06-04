@@ -1636,6 +1636,64 @@ h1 {
   margin-bottom: 8px;
 }
 
+.transcript-progress-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 8px 0 12px;
+}
+
+.transcript-progress-step {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  color: #64748b;
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 10px;
+}
+
+.transcript-progress-step strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.transcript-progress-step.active {
+  border-color: var(--theme-border);
+  color: var(--theme);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme) 12%, transparent);
+}
+
+.transcript-progress-step.done {
+  background: color-mix(in srgb, var(--theme-soft) 70%, #fff);
+  border-color: var(--theme-border);
+  color: #1d4ed8;
+}
+
+.transcript-progress-dot {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 20px;
+  height: 20px;
+  justify-content: center;
+  width: 20px;
+}
+
+.transcript-progress-message {
+  margin-bottom: 0;
+}
+
+.transcript-live-text {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 8px 0 0;
+}
+
 .media-links a {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -2227,6 +2285,10 @@ h1 {
   .seo-group-grid,
   .seo-link-grid,
   .steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .transcript-progress-list {
     grid-template-columns: 1fr;
   }
 

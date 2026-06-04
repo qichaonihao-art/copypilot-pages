@@ -35,6 +35,8 @@ const articleDraftHtml = ref('');
 const articleRewriteLoading = ref(false);
 const videoTranscriptLoading = ref(false);
 const transcriptMode = ref('');
+const transcriptProgress = ref({ stage: 'idle', message: '' });
+const transcriptLiveText = ref('');
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -897,6 +899,24 @@ const hasVideoTranscript = computed(() => Boolean(result.value?.transcript && re
 const shouldShowVideoTextUnderPreview = computed(() => {
   if (!shouldShowVideoResult.value || !hasVideoTranscript.value) return false;
   return isHome.value || toolPage.value?.type === 'video' || toolPage.value?.type === 'text';
+});
+const transcriptStageItems = computed(() => {
+  const order = ['source', 'download', 'extract_audio', 'asr', 'result'];
+  const labels = {
+    source: '解析视频',
+    download: '下载视频',
+    extract_audio: '提取音频',
+    asr: '千问转写',
+    result: '整理结果'
+  };
+  const current = normalizeTranscriptStage(transcriptProgress.value.stage);
+  const currentIndex = Math.max(0, order.indexOf(current));
+  return order.map((stage, index) => ({
+    stage,
+    label: labels[stage],
+    active: stage === current,
+    done: current === 'result' ? index <= currentIndex : index < currentIndex
+  }));
 });
 const shouldShowMainTextBlock = computed(() => {
   if (hasVideoTranscript.value && (isHome.value || toolPage.value?.type === 'video')) return false;
@@ -1988,10 +2008,12 @@ async function transcribeExtractedVideo(mode = 'precise') {
   const cleanUrl = extractUrl(url.value);
   const durationSeconds = getResultDurationSeconds(result.value);
   transcriptMode.value = mode;
+  transcriptLiveText.value = '';
+  setTranscriptProgress('source', '正在连接阿里云工作台...');
   videoTranscriptLoading.value = true;
   error.value = '';
 
-  notice.value = '正在调用阿里云工作台提取视频逐字稿...';
+  notice.value = '正在连接阿里云工作台...';
 
   trackEvent('extract_start', {
     inputType: 'extracted_video',
@@ -2002,26 +2024,22 @@ async function transcribeExtractedVideo(mode = 'precise') {
   });
 
   try {
-    const response = await fetch('/api/aliyun-transcribe-link', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: cleanUrl,
-        videoUrl,
-        videoUrls: videoLinks.value,
-        sourceData: result.value,
-        title: resultTitle.value,
-        publishedText: publishedText.value,
-        durationSeconds,
-        mode
-      })
+    const payload = await transcribeWithAliyunStream({
+      url: cleanUrl,
+      videoUrl,
+      videoUrls: videoLinks.value,
+      sourceData: result.value,
+      title: resultTitle.value,
+      publishedText: publishedText.value,
+      durationSeconds,
+      mode
     });
-    const payload = await readJsonResponse(response, '阿里云逐字稿接口');
-    if (!response.ok || !payload.ok) throw new Error(formatApiError(payload, '视频逐字稿提取失败'));
+    if (!payload.ok) throw new Error(formatApiError(payload, '视频逐字稿提取失败'));
 
     const text = payload.data?.transcript || payload.data?.text || '';
     if (!text) throw new Error('阿里云逐字稿接口已返回，但没有识别到文案内容。');
 
+    setTranscriptProgress('result', '逐字稿已整理完成');
     result.value = {
       ...result.value,
       ...payload.data,
@@ -2060,6 +2078,96 @@ async function transcribeExtractedVideo(mode = 'precise') {
   }
 }
 
+function normalizeTranscriptStage(stage) {
+  const value = String(stage || '').trim();
+  if (value === 'asr-fallback' || value === 'delta') return 'asr';
+  if (value === 'done') return 'result';
+  if (['source', 'download', 'extract_audio', 'asr', 'result'].includes(value)) return value;
+  return 'source';
+}
+
+function setTranscriptProgress(stage, message) {
+  const normalized = normalizeTranscriptStage(stage);
+  transcriptProgress.value = {
+    stage: normalized,
+    message: message || transcriptProgress.value.message || ''
+  };
+  notice.value = transcriptProgress.value.message;
+}
+
+async function transcribeWithAliyunStream(requestBody) {
+  const response = await fetch('/api/aliyun-transcribe-stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify(requestBody)
+  });
+
+  const contentType = response.headers.get('Content-Type') || response.headers.get('content-type') || '';
+  if (!response.ok || !contentType.toLowerCase().includes('text/event-stream') || !response.body) {
+    const payload = await readJsonResponse(response, '阿里云流式逐字稿接口');
+    throw new Error(formatApiError(payload, '视频逐字稿提取失败'));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let resultPayload = null;
+
+  async function handleBlock(block) {
+    const lines = block.split(/\r?\n/);
+    let event = 'message';
+    const dataLines = [];
+    for (const line of lines) {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+    }
+    if (!dataLines.length) return;
+
+    let payload = {};
+    try {
+      payload = JSON.parse(dataLines.join('\n'));
+    } catch {
+      return;
+    }
+
+    if (event === 'status') {
+      setTranscriptProgress(payload.stage, payload.message || '正在处理逐字稿...');
+      return;
+    }
+    if (event === 'delta') {
+      const text = payload.fullText || payload.text || '';
+      if (text) transcriptLiveText.value = text;
+      setTranscriptProgress('asr', text ? `千问 ASR 正在转写，已识别 ${text.length} 字` : '千问 ASR 正在转写');
+      return;
+    }
+    if (event === 'result') {
+      resultPayload = payload;
+      setTranscriptProgress('result', '正在整理识别结果');
+      return;
+    }
+    if (event === 'error') {
+      throw new Error(payload.message || '阿里云逐字稿提取失败。');
+    }
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\n\n|\r\n\r\n/);
+    buffer = blocks.pop() || '';
+    for (const block of blocks) {
+      await handleBlock(block);
+    }
+  }
+  if (buffer.trim()) await handleBlock(buffer);
+
+  if (resultPayload) return resultPayload;
+  const text = transcriptLiveText.value.trim();
+  if (text) return { ok: true, data: { transcript: text, text } };
+  return { ok: false, message: '阿里云逐字稿接口结束了流式响应，但没有返回识别结果。' };
+}
+
 function formatApiError(payload, fallback) {
   const parts = [payload?.message || fallback];
   if (payload?.upstreamUrl) parts.push(`upstreamUrl：${payload.upstreamUrl}`);
@@ -2073,7 +2181,7 @@ async function readJsonResponse(response, label = '接口') {
   const contentType = response.headers.get('Content-Type') || response.headers.get('content-type') || '';
   const text = await response.text();
   const preview = text.slice(0, 300);
-  const upstreamUrl = response.url || '/api/transcribe-link';
+  const upstreamUrl = response.url || '/api/aliyun-transcribe-link';
 
   if (!contentType.toLowerCase().includes('application/json')) {
     throw new Error(`${label}没有返回 JSON。upstreamUrl：${upstreamUrl}；状态码：${response.status}；content-type：${contentType || '空'}；响应前300字：${preview || '空响应'}`);
@@ -2856,7 +2964,23 @@ onUnmounted(() => {
 
             <article v-if="videoTranscriptLoading && shouldShowVideoResult" class="result-block video-transcript-panel">
               <span>正在提取逐字稿</span>
-              <p class="result-text">{{ notice }}</p>
+              <div class="transcript-progress-list" aria-live="polite">
+                <div
+                  v-for="item in transcriptStageItems"
+                  :key="item.stage"
+                  :class="['transcript-progress-step', { active: item.active, done: item.done }]"
+                >
+                  <span class="transcript-progress-dot">
+                    <Check v-if="item.done" :size="13" />
+                    <Loader2 v-else-if="item.active" class="spin" :size="13" />
+                  </span>
+                  <strong>{{ item.label }}</strong>
+                </div>
+              </div>
+              <p class="result-text transcript-progress-message">{{ transcriptProgress.message || notice }}</p>
+              <p v-if="transcriptLiveText" class="transcript-live-text">
+                已识别 {{ transcriptLiveText.length }} 字
+              </p>
             </article>
 
             <article v-if="error && !videoTranscriptLoading && shouldShowVideoResult" class="result-block video-transcript-panel">
