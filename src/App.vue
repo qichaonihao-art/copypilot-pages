@@ -2057,6 +2057,8 @@ async function transcribeExtractedVideo(mode = 'precise') {
       hasTranscript: true
     });
     await loadMe();
+    await nextTick();
+    scrollToTranscriptResult();
     return;
   } catch (err) {
     error.value = err.message || '视频逐字稿提取失败，请稍后重试。';
@@ -2080,6 +2082,15 @@ function scrollToTranscriptProgress() {
       progressPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, 80);
+}
+
+function scrollToTranscriptResult() {
+  setTimeout(() => {
+    const transcriptPanel = document.getElementById('video-transcript-result');
+    if (transcriptPanel) {
+      transcriptPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 120);
 }
 
 function normalizeTranscriptStage(stage) {
@@ -2961,8 +2972,11 @@ onUnmounted(() => {
               </div>
             </article>
 
-            <article v-if="shouldShowVideoTextUnderPreview" class="result-block video-transcript-panel">
-              <span>{{ copyBlockTitle }}</span>
+            <article v-if="shouldShowVideoTextUnderPreview" id="video-transcript-result" class="result-block video-transcript-panel">
+              <div class="video-transcript-head">
+                <span>{{ copyBlockTitle }}</span>
+                <button type="button" @click="copyText(resultText)">一键复制文案</button>
+              </div>
               <p class="result-text">{{ resultText }}</p>
             </article>
 
