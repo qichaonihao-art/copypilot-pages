@@ -1645,8 +1645,27 @@ h1 {
   margin-bottom: 8px;
 }
 
-.video-transcript-head > span {
+.video-transcript-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.video-transcript-title > span {
   margin-bottom: 0;
+}
+
+.video-transcript-title em {
+  background: #f1f5f9;
+  border: 1px solid #dbe4f0;
+  border-radius: 999px;
+  color: #64748b;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  padding: 5px 9px;
 }
 
 .video-transcript-tools {

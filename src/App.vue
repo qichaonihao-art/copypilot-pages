@@ -3043,7 +3043,10 @@ onUnmounted(() => {
 
             <article v-if="shouldShowVideoTextUnderPreview" id="video-transcript-result" class="result-block video-transcript-panel">
               <div class="video-transcript-head">
-                <span>{{ copyBlockTitle }}</span>
+                <div class="video-transcript-title">
+                  <span>{{ copyBlockTitle }}</span>
+                  <em>{{ resultText.length }} 字</em>
+                </div>
                 <div class="video-transcript-tools">
                   <button type="button" class="transcript-history-trigger" @click="transcriptHistoryOpen = true">
                     <History :size="17" />
