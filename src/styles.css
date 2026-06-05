@@ -1046,6 +1046,20 @@ h1 {
   min-width: 160px;
 }
 
+.extract-box .button-row {
+  display: grid;
+  gap: 10px 12px;
+  grid-template-columns: repeat(3, max-content);
+  justify-content: center;
+}
+
+.extract-box .button-row .primary-button {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-inline: auto;
+  width: max-content;
+}
+
 .extract-box .secondary-button {
   background: transparent;
   border-color: transparent;
@@ -1069,8 +1083,9 @@ h1 {
   box-shadow: 0 8px 22px rgba(16, 185, 129, 0.08);
   color: #065f46;
   display: inline-flex;
-  gap: 7px;
-  padding: 0 10px 0 13px;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 8px 0 10px;
 }
 
 .extract-box .top-history-button:hover:not(:disabled) {
@@ -2598,6 +2613,14 @@ h1 {
   .site-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .extract-box .button-row {
+    display: flex;
+  }
+
+  .extract-box .button-row .primary-button {
+    width: 100%;
   }
 
   .admin-heading,

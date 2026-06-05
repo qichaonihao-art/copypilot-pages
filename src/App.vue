@@ -2861,9 +2861,15 @@ onUnmounted(() => {
             </button>
             <button class="secondary-button" @click="paste"><Clipboard :size="18" /> {{ uiText.paste }}</button>
             <button class="secondary-button" @click="clearInput">{{ uiText.clear }}</button>
-            <button type="button" class="secondary-button top-history-button" @click="transcriptHistoryOpen = true">
+            <button
+              type="button"
+              class="secondary-button top-history-button"
+              title="最近提取记录"
+              aria-label="最近提取记录"
+              @click="transcriptHistoryOpen = true"
+            >
               <History :size="18" />
-              <span>最近提取记录</span>
+              <span>记录</span>
               <em>{{ transcriptHistory.length }}</em>
             </button>
           </div>
