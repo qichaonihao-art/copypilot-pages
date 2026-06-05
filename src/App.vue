@@ -40,6 +40,7 @@ const transcriptProgress = ref({ stage: 'idle', message: '' });
 const transcriptLiveText = ref('');
 const transcriptHistoryOpen = ref(false);
 const transcriptHistory = ref(loadTranscriptHistory());
+const transcriptCopyDone = ref(false);
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -65,6 +66,7 @@ const adminMessage = ref('');
 const devCode = ref('');
 const isPublicFreeMode = !['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 const openFaqIndex = ref(0);
+let transcriptCopyTimer = null;
 
 function toggleFaq(index) {
   openFaqIndex.value = openFaqIndex.value === index ? -1 : index;
@@ -1969,11 +1971,19 @@ function autoResizeTextarea(event) {
   el.style.height = el.scrollHeight + 'px';
 }
 
-async function copyText(value) {
+async function copyText(value, options = {}) {
   const text = typeof value === 'string' ? value : resultText.value;
   if (!text) return;
   await navigator.clipboard.writeText(text);
   notice.value = '文案已复制。';
+  if (options.feedback === 'transcript') {
+    transcriptCopyDone.value = true;
+    if (transcriptCopyTimer) clearTimeout(transcriptCopyTimer);
+    transcriptCopyTimer = window.setTimeout(() => {
+      transcriptCopyDone.value = false;
+      transcriptCopyTimer = null;
+    }, 1600);
+  }
   trackEvent('copy_text', {
     targetType: toolPage.value?.type || 'auto',
     textLength: text.length
@@ -2410,6 +2420,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll);
+  if (transcriptCopyTimer) clearTimeout(transcriptCopyTimer);
 });
 </script>
 
@@ -2850,6 +2861,11 @@ onUnmounted(() => {
             </button>
             <button class="secondary-button" @click="paste"><Clipboard :size="18" /> {{ uiText.paste }}</button>
             <button class="secondary-button" @click="clearInput">{{ uiText.clear }}</button>
+            <button type="button" class="secondary-button top-history-button" @click="transcriptHistoryOpen = true">
+              <History :size="18" />
+              <span>最近提取记录</span>
+              <em>{{ transcriptHistory.length }}</em>
+            </button>
           </div>
           <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
           <p v-if="notice && !videoTranscriptLoading" class="alert success">{{ notice }}</p>
@@ -3054,9 +3070,14 @@ onUnmounted(() => {
                     <span>最近提取记录</span>
                     <em>{{ transcriptHistory.length }}</em>
                   </button>
-                  <button type="button" class="transcript-copy-trigger" @click="copyText(resultText)">
-                    <Copy :size="17" />
-                    <span>一键复制文案</span>
+                  <button
+                    type="button"
+                    :class="['transcript-copy-trigger', { copied: transcriptCopyDone }]"
+                    @click="copyText(resultText, { feedback: 'transcript' })"
+                  >
+                    <Check v-if="transcriptCopyDone" :size="17" />
+                    <Copy v-else :size="17" />
+                    <span>{{ transcriptCopyDone ? '复制成功' : '一键复制文案' }}</span>
                   </button>
                 </div>
               </div>

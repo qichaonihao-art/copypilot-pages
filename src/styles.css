@@ -1064,6 +1064,46 @@ h1 {
   color: var(--theme);
 }
 
+.extract-box .top-history-button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.08);
+  color: #065f46;
+  display: inline-flex;
+  gap: 7px;
+  padding: 0 10px 0 13px;
+}
+
+.extract-box .top-history-button:hover:not(:disabled) {
+  background: #ecfdf5;
+  border-color: rgba(16, 185, 129, 0.42);
+  box-shadow: 0 10px 26px rgba(16, 185, 129, 0.14);
+  color: #047857;
+  transform: translateY(-1px);
+}
+
+.top-history-button svg {
+  color: #059669;
+  flex: 0 0 auto;
+}
+
+.top-history-button em {
+  align-items: center;
+  background: #10b981;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  height: 20px;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 6px;
+}
+
 .alert {
   border-radius: 8px;
   font-size: 14px;
@@ -1776,6 +1816,17 @@ h1 {
 .transcript-copy-trigger svg {
   color: #dbeafe;
   flex: 0 0 auto;
+}
+
+.video-transcript-head button.transcript-copy-trigger.copied {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  border-color: #15803d;
+  box-shadow: 0 11px 26px rgba(22, 163, 74, 0.25);
+  color: #fff;
+}
+
+.video-transcript-head button.transcript-copy-trigger.copied svg {
+  color: #dcfce7;
 }
 
 .modal-backdrop {
