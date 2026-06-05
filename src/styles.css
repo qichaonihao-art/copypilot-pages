@@ -68,18 +68,18 @@ html {
 }
 
 body {
-  background: color-mix(in srgb, var(--theme-soft, #eff6ff) 55%, #ffffff);
+  background: #edf3f8;
   margin: 0;
 }
 
 html {
-  background: color-mix(in srgb, var(--theme-soft, #eff6ff) 55%, #ffffff);
+  background: #edf3f8;
 }
 
 .site {
   background:
-    radial-gradient(circle, rgba(37, 99, 235, 0.045) 1px, transparent 1px),
-    linear-gradient(180deg, color-mix(in srgb, var(--theme-soft, #eff6ff) 72%, #ffffff) 0%, color-mix(in srgb, var(--theme-soft, #eff6ff) 50%, #ffffff) 100%);
+    radial-gradient(circle, rgba(37, 99, 235, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, #e8f0fa 0%, #edf3f8 46%, #eaf1f6 100%);
   background-size: 40px 40px, 100% 100%;
   min-height: 100vh;
   position: relative;
@@ -872,17 +872,19 @@ h1 {
 }
 
 .extract-box {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  background: rgba(247, 250, 253, 0.58);
+  border: 1px solid rgba(203, 213, 225, 0.42);
+  border-radius: 16px;
+  box-shadow:
+    0 18px 48px rgba(15, 23, 42, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
   align-self: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   margin: 0 auto;
   max-width: 980px;
-  padding: 0;
+  padding: 18px;
   position: relative;
   text-align: center;
   width: min(650px, 100%);
@@ -900,12 +902,12 @@ h1 {
 
 .extract-box input,
 .extract-box textarea {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #d0d9e6;
+  background: rgba(248, 251, 255, 0.96);
+  border: 1px solid #c8d4e3;
   border-radius: 14px;
   box-shadow:
-    0 8px 32px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+    0 8px 28px rgba(15, 23, 42, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.68) inset;
   color: #111827;
   display: block;
   font-size: 17px;
@@ -1232,12 +1234,12 @@ h1 {
 
 .result-card {
   animation: fadeInUp 0.5s ease;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: rgba(248, 251, 255, 0.88);
+  border: 1px solid #d8e3ef;
   border-radius: 16px;
   box-shadow:
-    0 24px 72px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    0 24px 72px rgba(15, 23, 42, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.62) inset;
   margin: 0 auto;
   max-width: 980px;
   padding: 28px;
@@ -1248,12 +1250,12 @@ h1 {
 }
 
 .progress-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #f0f8fb;
+  border: 1px solid #c8e8f0;
   border-radius: 14px;
   box-shadow:
-    0 20px 60px rgba(17, 24, 39, 0.07),
-    0 0 0 1px rgba(255, 255, 255, 0.45) inset;
+    0 20px 60px rgba(17, 24, 39, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.62) inset;
   margin: 0 auto;
   max-width: 980px;
   padding: 28px 30px 36px;
@@ -1337,16 +1339,20 @@ h1 {
 }
 
 .result-block {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #f8fbff;
+  border: 1px solid #dce6f1;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.035),
+    0 1px 0 rgba(255, 255, 255, 0.72) inset;
   padding: 18px;
   transition: box-shadow 0.2s ease;
 }
 
 .result-block:hover {
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.055),
+    0 1px 0 rgba(255, 255, 255, 0.74) inset;
 }
 
 .result-block > span {
@@ -1569,6 +1575,11 @@ h1 {
   gap: 12px;
 }
 
+.video-preview-block {
+  background: #f3f7fb;
+  border-color: #cfddea;
+}
+
 .video-result video {
   aspect-ratio: 16 / 9;
   background: #111827;
@@ -1694,8 +1705,8 @@ h1 {
 }
 
 .video-transcript-panel {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f2fbf7;
+  border: 1px solid #cfe8dc;
   border-radius: 8px;
   padding: 16px;
 }

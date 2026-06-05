@@ -3027,7 +3027,7 @@ onUnmounted(() => {
               <p v-else>未识别到标签</p>
             </article>
 
-            <article v-if="shouldShowVideoResult" class="result-block">
+            <article v-if="shouldShowVideoResult" class="result-block video-preview-block">
               <span>视频提取 / 去水印</span>
               <div v-if="videoLinks.length" class="video-result">
                 <video :src="previewVideoUrl" controls playsinline preload="metadata"></video>
