@@ -918,7 +918,10 @@ const articleHtml = computed(() => {
 
 const hasResultContent = computed(() => result.value || videoLinks.value.length || imageLinks.value.length);
 const shouldShowVideoResult = computed(() => videoLinks.value.length && (isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
-const shouldShowImageResult = computed(() => imageLinks.value.length && (isHome.value || ['image', 'article'].includes(toolPage.value?.type)));
+const shouldShowImageResult = computed(() => {
+  if (result.value?.platform === 'wechat_channels') return false;
+  return imageLinks.value.length && (isHome.value || ['image', 'article'].includes(toolPage.value?.type));
+});
 const hasVideoTranscript = computed(() => Boolean(result.value?.transcript && resultText.value));
 const shouldShowVideoTextUnderPreview = computed(() => {
   if (!shouldShowVideoResult.value || !hasVideoTranscript.value) return false;
