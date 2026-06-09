@@ -15,6 +15,7 @@ import {
   Image,
   Link,
   Loader2,
+  Settings,
   Sparkles,
   Upload,
   Zap,
@@ -41,6 +42,21 @@ const transcriptLiveText = ref('');
 const transcriptHistoryOpen = ref(false);
 const transcriptHistory = ref(loadTranscriptHistory());
 const transcriptCopyDone = ref(false);
+const configOpen = ref(false);
+const configLoading = ref(false);
+const configAdminPassword = ref('');
+const configWechatCookie = ref('');
+const configTestUrl = ref('');
+const configMessage = ref('');
+const configMessageType = ref('success');
+const wechatCookieStatus = ref({
+  configured: false,
+  storageConfigured: false,
+  updatedAt: null,
+  preview: '',
+  lastTestAt: null,
+  lastTestResult: null
+});
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -842,6 +858,8 @@ const videoLinks = computed(() => {
   if (video.download_addr?.url_list?.length) links.push(...video.download_addr.url_list);
   if (detail.video_url) links.push(detail.video_url);
   if (data.video_url) links.push(data.video_url);
+  if (data.videoUrl) links.push(data.videoUrl);
+  if (data.originVideoUrl) links.push(data.originVideoUrl);
   if (data.videos?.items?.length) {
     const sortedVideos = [...data.videos.items].sort((a, b) => Number(b.hasAudio) - Number(a.hasAudio));
     links.push(...sortedVideos.map((item) => item.url));
@@ -877,6 +895,7 @@ const imageLinks = computed(() => {
   if (detail.cover?.url_list?.length) links.push(detail.cover.url_list[0]);
   if (detail.cover) links.push(pickImageUrl(detail.cover));
   if (detail.cover_url) links.push(detail.cover_url);
+  if (data.cover) links.push(data.cover);
   if (detail.msg_cdn_url) links.push(detail.msg_cdn_url);
   for (const image of images) {
     const bestImage = pickImageUrl(image);
@@ -1321,6 +1340,8 @@ function trackEvent(eventName, payload = {}) {
 function detectPlatformFromUrl(value) {
   try {
     const host = new URL(value).hostname.toLowerCase();
+    const pathname = new URL(value).pathname.toLowerCase();
+    if (host.includes('weixin.qq.com') && pathname.includes('/sph/')) return 'wechat_channels';
     if (host.includes('douyin')) return 'douyin';
     if (host.includes('xiaohongshu') || host.includes('xhslink')) return 'xiaohongshu';
     if (host.includes('tiktok')) return 'tiktok';
@@ -1476,7 +1497,12 @@ async function extract() {
   try {
     url.value = cleanUrl;
     const smartHome = isHome.value;
-    const endpoint = toolPage.value?.type === 'text' && textMode.value === 'link' ? '/api/transcribe-link' : '/api/extract';
+    const isWechatChannel = platform === 'wechat_channels';
+    const endpoint = isWechatChannel
+      ? '/api/wechat-channel-extract'
+      : toolPage.value?.type === 'text' && textMode.value === 'link'
+        ? '/api/transcribe-link'
+        : '/api/extract';
 
     setExtractProgress(uiText.value.progressDetect, 16);
     if (smartHome) setExtractProgress(uiText.value.progressExtract, 36);
@@ -1487,7 +1513,7 @@ async function extract() {
       body: JSON.stringify({ url: cleanUrl, type: toolPage.value?.type || 'auto' })
     });
     const payload = await response.json();
-    if (!response.ok || !payload.ok) throw new Error(payload.message || '提取失败');
+    if (!response.ok || !payload.ok) throw new Error(formatWechatExtractError(payload) || payload.message || '提取失败');
     result.value = payload.data;
     if (toolPage.value?.type === 'article') {
       articleView.value = 'layout';
@@ -1965,6 +1991,101 @@ function clearInput() {
   });
 }
 
+function formatWechatExtractError(payload) {
+  if (!payload?.error) return '';
+  if (payload.error === 'WECHAT_COOKIE_MISSING') {
+    return '视频号解析 Cookie 未配置，暂时无法解析微信视频号链接。请进入系统配置页面填写腾讯元宝 Cookie。';
+  }
+  if (payload.error === 'WECHAT_COOKIE_EXPIRED') {
+    return '视频号解析失败，可能是腾讯元宝 Cookie 已过期。请进入系统配置页面，重新粘贴腾讯元宝 Cookie 后再试。';
+  }
+  if (payload.error === 'WECHAT_URL_INVALID') {
+    return '不是有效的微信视频号分享链接，请粘贴 weixin.qq.com/sph/ 开头的链接。';
+  }
+  return payload.message || '';
+}
+
+async function loadWechatCookieStatus() {
+  try {
+    const response = await fetch('/api/admin/wechat-cookie/status');
+    const payload = await response.json();
+    if (payload?.ok) {
+      wechatCookieStatus.value = {
+        configured: Boolean(payload.configured),
+        storageConfigured: Boolean(payload.storageConfigured),
+        updatedAt: payload.updatedAt || null,
+        preview: payload.preview || '',
+        lastTestAt: payload.lastTestAt || null,
+        lastTestResult: payload.lastTestResult || null
+      };
+    }
+  } catch {
+    // The status panel can still render with its default state.
+  }
+}
+
+async function openSystemConfig() {
+  configOpen.value = true;
+  configMessage.value = '';
+  configMessageType.value = 'success';
+  configWechatCookie.value = '';
+  await loadWechatCookieStatus();
+}
+
+async function saveWechatCookieConfig() {
+  configMessage.value = '';
+  configMessageType.value = 'success';
+  configLoading.value = true;
+  try {
+    const response = await fetch('/api/admin/wechat-cookie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminPassword: configAdminPassword.value,
+        cookie: configWechatCookie.value
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '保存失败。');
+    configWechatCookie.value = '';
+    configMessage.value = payload.message || '保存成功，视频号解析 Cookie 已更新。';
+    configMessageType.value = 'success';
+    await loadWechatCookieStatus();
+  } catch (err) {
+    configMessage.value = err.message || '保存失败，请稍后重试。';
+    configMessageType.value = 'error';
+  } finally {
+    configLoading.value = false;
+  }
+}
+
+async function testWechatCookieConfig() {
+  configMessage.value = '';
+  configMessageType.value = 'success';
+  configLoading.value = true;
+  try {
+    const response = await fetch('/api/admin/wechat-cookie/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminPassword: configAdminPassword.value,
+        url: configTestUrl.value
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '测试失败。');
+    configMessage.value = payload.message || '测试成功，当前 Cookie 可用。';
+    configMessageType.value = 'success';
+    await loadWechatCookieStatus();
+  } catch (err) {
+    configMessage.value = err.message || '测试失败，Cookie 可能已过期或格式不完整，请重新从腾讯元宝复制 Cookie。';
+    configMessageType.value = 'error';
+    await loadWechatCookieStatus();
+  } finally {
+    configLoading.value = false;
+  }
+}
+
 function autoResizeTextarea(event) {
   const el = event.target;
   el.style.height = 'auto';
@@ -2414,6 +2535,7 @@ function scrollToTop() {
 
 onMounted(async () => {
   await loadMe();
+  await loadWechatCookieStatus();
   trackEvent('page_view', { path: currentPath.value });
   window.addEventListener('scroll', onScroll, { passive: true });
 });
@@ -2872,6 +2994,16 @@ onUnmounted(() => {
               <span>记录</span>
               <em>{{ transcriptHistory.length }}</em>
             </button>
+            <button
+              type="button"
+              class="secondary-button top-config-button"
+              title="系统配置"
+              aria-label="系统配置"
+              @click="openSystemConfig"
+            >
+              <Settings :size="18" />
+              <span>配置</span>
+            </button>
           </div>
           <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
           <p v-if="notice && !videoTranscriptLoading" class="alert success">{{ notice }}</p>
@@ -3243,6 +3375,69 @@ onUnmounted(() => {
           </article>
         </div>
         <p v-else class="transcript-history-empty">还没有逐字稿记录。</p>
+      </section>
+    </div>
+
+    <div v-if="configOpen" class="modal-backdrop" @click.self="configOpen = false">
+      <section class="system-config-modal" role="dialog" aria-modal="true" aria-label="系统配置">
+        <div class="transcript-history-head">
+          <div>
+            <strong>视频号解析配置</strong>
+            <span>手动维护腾讯元宝 Cookie</span>
+          </div>
+          <button type="button" class="modal-close-button" @click="configOpen = false">关闭</button>
+        </div>
+
+        <div class="config-status-grid">
+          <article>
+            <span>Cookie 状态</span>
+            <strong>{{ wechatCookieStatus.configured ? '已配置' : '未配置' }}</strong>
+          </article>
+          <article>
+            <span>最近更新时间</span>
+            <strong>{{ wechatCookieStatus.updatedAt ? formatHistoryTime(wechatCookieStatus.updatedAt) : '暂无' }}</strong>
+          </article>
+          <article>
+            <span>Cookie 预览</span>
+            <strong>{{ wechatCookieStatus.preview || '未配置' }}</strong>
+          </article>
+          <article>
+            <span>最近测试结果</span>
+            <strong>{{ wechatCookieStatus.lastTestResult || '暂无' }}</strong>
+          </article>
+        </div>
+
+        <p v-if="!wechatCookieStatus.storageConfigured" class="alert error">
+          CONFIG_KV 未绑定，暂时无法保存视频号解析 Cookie。
+        </p>
+        <p v-else-if="!wechatCookieStatus.configured" class="alert info">
+          视频号解析 Cookie 未配置，暂时无法解析微信视频号链接。
+        </p>
+
+        <label class="config-field">
+          <span>管理员密码</span>
+          <input v-model="configAdminPassword" type="password" autocomplete="current-password" placeholder="输入 ADMIN_PASSWORD" />
+        </label>
+        <label class="config-field">
+          <span>腾讯元宝 Cookie</span>
+          <textarea v-model="configWechatCookie" rows="5" placeholder="粘贴完整腾讯元宝 Cookie。保存后不会在页面明文展示。"></textarea>
+        </label>
+        <label class="config-field">
+          <span>测试视频号链接（可选）</span>
+          <input v-model="configTestUrl" type="text" placeholder="https://weixin.qq.com/sph/xxxx" />
+        </label>
+
+        <div class="config-actions">
+          <button type="button" class="primary-button" :disabled="configLoading" @click="saveWechatCookieConfig">
+            <Loader2 v-if="configLoading" class="spin" :size="17" />
+            保存配置
+          </button>
+          <button type="button" class="secondary-button" :disabled="configLoading" @click="testWechatCookieConfig">
+            测试 Cookie 是否可用
+          </button>
+        </div>
+
+        <p v-if="configMessage" :class="['alert', configMessageType]">{{ configMessage }}</p>
       </section>
     </div>
 

@@ -4,5 +4,11 @@ pages_build_output_dir = "dist"
 
 [vars]
 TIKHUB_BASE_URL = "https://api.tikhub.io"
+# 请在 Cloudflare Pages 环境变量中设置 ADMIN_PASSWORD，不要把真实密码写进代码仓库。
 
-
+# 微信视频号解析 Cookie 使用 Cloudflare KV 保存。
+# 在 Cloudflare Pages 后台创建 KV namespace 后，将绑定名设置为 CONFIG_KV。
+# 如果使用 wrangler 部署，可取消下面注释并填入真实 namespace id。
+# [[kv_namespaces]]
+# binding = "CONFIG_KV"
+# id = "YOUR_CONFIG_KV_NAMESPACE_ID"
