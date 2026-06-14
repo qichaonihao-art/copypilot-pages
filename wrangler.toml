@@ -4,7 +4,8 @@ pages_build_output_dir = "dist"
 
 [vars]
 TIKHUB_BASE_URL = "https://api.tikhub.io"
-# 请在 Cloudflare Pages 环境变量中设置 ADMIN_PASSWORD，不要把真实密码写进代码仓库。
+# 请在 Cloudflare Pages 环境变量中设置 ACCESS_PASSWORD，不要把真实密码写进代码仓库。
+# 设置 ACCESS_PASSWORD 后，所有页面和 API 都会要求先输入访问密码，验证通过后 30 天内免登录。
 
 # 微信视频号解析 Cookie 使用 Cloudflare KV 保存。
 [[kv_namespaces]]

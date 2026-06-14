@@ -49,6 +49,20 @@ CopyPilot 是一个对标 AnyToCopy 方向的内容提取工具站。当前公�
 - `scripts/deploy-cloudflare.ps1`：本地读取 Cloudflare Token 并部署 Pages。
 - `public/favicon.svg`：浏览器标签图标。
 
+## 访问密码保护
+
+项目支持通过环境变量 `ACCESS_PASSWORD` 一键开启全站访问密码：
+
+- 设置 `ACCESS_PASSWORD` 后，未携带有效 Cookie 的访问者会先看到登录页。
+- 验证通过后写入 30 天有效期的 HttpOnly Cookie，期间无需再次输入。
+- 未设置 `ACCESS_PASSWORD` 时，中间件直接放行，不影响现有公开访问。
+- 涉及文件：
+  - `functions/_middleware.js`：拦截所有请求并校验 Cookie。
+  - `functions/api/login.js`：验证密码并下发 Cookie。
+  - `functions/api/logout.js`：清除 Cookie。
+- 生产环境请在 Cloudflare Pages Settings -> Environment variables 中设置，不要把密码写进仓库。
+- 建议同时设置 `SESSION_SECRET` 用于安全签名访问 Cookie。
+
 ## 本地运行
 
 ```bash

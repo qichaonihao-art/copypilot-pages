@@ -29,12 +29,16 @@ npx wrangler pages dev dist
 
 - `TIKHUB_API_KEY`
 - `TIKHUB_BASE_URL`，默认 `https://api.tikhub.io`
+- `ACCESS_PASSWORD`（可选）：设置后所有页面和 API 都需要先输入访问密码，Cookie 30 天有效。适合内部使用或防止链接被转发滥用。
+- `SESSION_SECRET`（可选）：用于签名访问密码 Cookie，生产环境建议设置一个长随机字符串。
 
 本地测试 Functions 时可以用 Wrangler 的环境变量能力或 `.dev.vars`。`.dev.vars` 不应提交到仓库：
 
 ```bash
 TIKHUB_API_KEY=your-key
 TIKHUB_BASE_URL=https://api.tikhub.io
+ACCESS_PASSWORD=your-internal-password
+SESSION_SECRET=a-long-random-string
 ```
 
 ## 部署到 Cloudflare Pages
@@ -44,7 +48,8 @@ TIKHUB_BASE_URL=https://api.tikhub.io
 3. Build command: `npm run build`
 4. Build output directory: `dist`
 5. 在 Settings -> Environment variables 添加 `TIKHUB_API_KEY`。
-6. 部署后绑定你购买的域名。
+6. （可选）如需访问密码保护，添加 `ACCESS_PASSWORD`；建议同时设置 `SESSION_SECRET` 用于安全签名 Cookie。
+7. 部署后绑定你购买的域名。
 
 ## 后续要补的正式版能力
 
