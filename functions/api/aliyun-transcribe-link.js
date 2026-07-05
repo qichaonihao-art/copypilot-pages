@@ -1,6 +1,6 @@
 import { json } from './_tikhub.js';
 
-const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_TIMEOUT_MS = 8 * 60 * 1000;
 
 export async function onRequestGet() {
   return json({ ok: true, message: 'aliyun-transcribe-link alive, use POST' });
