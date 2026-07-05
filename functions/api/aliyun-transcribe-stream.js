@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 8 * 60 * 1000;
+const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 
 export async function onRequestGet() {
   return new Response(JSON.stringify({ ok: true, message: 'aliyun-transcribe-stream alive, use POST' }), {
