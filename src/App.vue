@@ -44,7 +44,6 @@ const transcriptHistory = ref(loadTranscriptHistory());
 const transcriptCopyDone = ref(false);
 const configOpen = ref(false);
 const configLoading = ref(false);
-const configAdminPassword = ref('');
 const configWechatCookie = ref('');
 const configTestUrl = ref('');
 const configMessage = ref('');
@@ -2044,7 +2043,6 @@ async function saveWechatCookieConfig() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        adminPassword: configAdminPassword.value,
         cookie: configWechatCookie.value
       })
     });
@@ -2071,7 +2069,6 @@ async function testWechatCookieConfig() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        adminPassword: configAdminPassword.value,
         url: configTestUrl.value
       })
     });
@@ -3417,10 +3414,6 @@ onUnmounted(() => {
           视频号解析 Cookie 未配置，暂时无法解析微信视频号链接。
         </p>
 
-        <label class="config-field">
-          <span>管理员密码</span>
-          <input v-model="configAdminPassword" type="password" autocomplete="current-password" placeholder="输入 ADMIN_PASSWORD" />
-        </label>
         <label class="config-field">
           <span>腾讯元宝 Cookie</span>
           <textarea v-model="configWechatCookie" rows="5" placeholder="粘贴完整腾讯元宝 Cookie。保存后不会在页面明文展示。"></textarea>

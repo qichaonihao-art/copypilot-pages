@@ -3,8 +3,7 @@ import {
   errorResponse,
   getStoredWechatCookie,
   parseWechatChannel,
-  recordWechatCookieTest,
-  requireAdminPassword
+  recordWechatCookieTest
 } from '../../_wechat_channels.js';
 
 export async function onRequestPost(context) {
@@ -16,7 +15,6 @@ export async function onRequestPost(context) {
   }
 
   try {
-    requireAdminPassword(context.env, body?.adminPassword);
     const cookieResult = await getStoredWechatCookie(context.env);
     if (!cookieResult.ok) {
       const error = new Error(cookieResult.message);

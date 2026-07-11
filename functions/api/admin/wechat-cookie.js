@@ -1,5 +1,5 @@
 import { json } from '../_tikhub.js';
-import { errorResponse, requireAdminPassword, saveWechatCookie } from '../_wechat_channels.js';
+import { errorResponse, saveWechatCookie } from '../_wechat_channels.js';
 
 export async function onRequestPost(context) {
   let body;
@@ -10,7 +10,6 @@ export async function onRequestPost(context) {
   }
 
   try {
-    requireAdminPassword(context.env, body?.adminPassword);
     const saved = await saveWechatCookie(context.env, body?.cookie);
     return json({
       ok: true,

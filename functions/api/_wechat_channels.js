@@ -82,12 +82,6 @@ export async function saveWechatCookie(env, cookie) {
   return { updatedAt, preview: maskCookie(value) };
 }
 
-export function requireAdminPassword(env, provided) {
-  const expected = String(env.ADMIN_PASSWORD || '');
-  if (!expected) throw makeWechatError('ADMIN_PASSWORD_MISSING', 'ADMIN_PASSWORD 未配置，无法使用系统配置功能。', 500);
-  if (String(provided || '') !== expected) throw makeWechatError('ADMIN_PASSWORD_INVALID', '管理员密码不正确。', 403);
-}
-
 export async function parseWechatChannelByStoredCookie(env, url) {
   const cookieResult = await getStoredWechatCookie(env);
   if (!cookieResult.ok) throw makeWechatError(cookieResult.error, cookieResult.message, cookieResult.error === 'CONFIG_KV_MISSING' ? 500 : 400);
