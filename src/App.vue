@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   BadgeCheck,
+  Calculator,
   Captions,
   Check,
   ChevronDown,
@@ -15,8 +16,11 @@ import {
   Image,
   Link,
   Loader2,
+  RotateCcw,
+  Save,
   Settings,
   Share2,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   Upload,
@@ -66,6 +70,25 @@ const sharedMessage = ref('');
 const shareLoading = ref(false);
 const currentSharedRecord = ref(null);
 const viewedSharedIds = ref(loadViewedSharedIds());
+const profitLoading = ref(false);
+const profitConfigOpen = ref(false);
+const profitMessage = ref('');
+const profitMessageType = ref('success');
+const profitStorageConfigured = ref(true);
+const profitForm = ref({
+  orderCount: 1000,
+  currentSmallPrice: 19.9,
+  currentLargePrice: 29.9,
+  adjustedSmallPrice: 22.9,
+  adjustedLargePrice: 32.9,
+  largeSharePercent: 90,
+  roi: 3,
+  returnRatePercent: 10,
+  productCost: 9,
+  shippingInsurance: 0.5,
+  platformFeePercent: 10
+});
+const profitConfig = ref(defaultProfitConfig());
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -95,6 +118,47 @@ let transcriptCopyTimer = null;
 
 function toggleFaq(index) {
   openFaqIndex.value = openFaqIndex.value === index ? -1 : index;
+}
+
+const profitFormulaMeta = [
+  { key: 'grossGmv', label: '总GMV', hint: '下单金额，通常按下单量和客单价计算。' },
+  { key: 'adCost', label: '广告费', hint: '广告 ROI 不变时，广告费一般等于总GMV / ROI。' },
+  { key: 'settledOrders', label: '有效成交单量', hint: '扣掉退货后的最终成交单数。' },
+  { key: 'settledGmv', label: '有效成交GMV', hint: '最终能提现、结算的成交金额。' },
+  { key: 'platformFee', label: '平台技术服务费', hint: '默认按退款后的有效成交GMV扣。' },
+  { key: 'productCostTotal', label: '货款成本', hint: '默认只按最终成交单支付货款。' },
+  { key: 'insuranceTotal', label: '运费险', hint: '默认只按最终成交单扣运费险。' },
+  { key: 'profit', label: '最终利润', hint: '扣完广告费、平台费、货款、运费险后的利润。' },
+  { key: 'profitPerOrder', label: '按下单数单均利润', hint: '总利润 / 总下单量，更适合看投流进来的每单价值。' },
+  { key: 'profitPerSettledOrder', label: '按成交数单均利润', hint: '总利润 / 有效成交单量，更适合看最终成交订单利润。' }
+];
+
+const profitVariableLabels = [
+  ['orders', '下单量'],
+  ['price', '单均成交价'],
+  ['roi', '广告ROI'],
+  ['returnRate', '退货率，小数'],
+  ['cost', '单均货款成本'],
+  ['insurance', '单均运费险'],
+  ['serviceRate', '平台服务费比例，小数']
+];
+
+function defaultProfitConfig() {
+  return {
+    updatedAt: null,
+    formulas: {
+      grossGmv: 'orders * price',
+      adCost: 'grossGmv / roi',
+      settledOrders: 'orders * (1 - returnRate)',
+      settledGmv: 'settledOrders * price',
+      platformFee: 'settledGmv * serviceRate',
+      productCostTotal: 'settledOrders * cost',
+      insuranceTotal: 'settledOrders * insurance',
+      profit: 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal',
+      profitPerOrder: 'profit / orders',
+      profitPerSettledOrder: 'profit / settledOrders'
+    }
+  };
 }
 
 const pageMap = {
@@ -501,6 +565,7 @@ const toolPage = computed(() => {
 });
 const activeSeoPage = computed(() => seoPageByPath[currentPath.value] || null);
 const isSharedListPage = computed(() => currentPath.value === '/shared');
+const isProfitPage = computed(() => currentPath.value === '/profit');
 const sharedVideoId = computed(() => {
   const match = currentPath.value.match(/^\/share\/([^/?#]+)/);
   return match ? decodeURIComponent(match[1]) : '';
@@ -508,7 +573,7 @@ const sharedVideoId = computed(() => {
 const isShareDetailPage = computed(() => Boolean(sharedVideoId.value));
 const isSharedPage = computed(() => isSharedListPage.value || isShareDetailPage.value);
 const currentShareUrl = computed(() => `${window.location.origin}${currentPath.value}`);
-const isHome = computed(() => !toolPage.value && !isSharedPage.value);
+const isHome = computed(() => !toolPage.value && !isSharedPage.value && !isProfitPage.value);
 const pageTheme = computed(() => toolPage.value?.theme || 'blue');
 const isLegalPage = computed(() => toolPage.value?.type === 'legal');
 const isFilePage = computed(() => toolPage.value?.type === 'media-file' || (toolPage.value?.type === 'text' && textMode.value === 'file'));
@@ -519,6 +584,16 @@ const authButtonText = computed(() => currentUser.value ? currentUser.value.emai
 const isAdmin = computed(() => Boolean(currentUser.value?.isAdmin || currentUser.value?.plan === 'admin'));
 const currentPlanLabel = computed(() => formatPlanName(currentUser.value?.plan));
 const unreadSharedCount = computed(() => sharedVideos.value.filter((item) => item?.id && !viewedSharedIds.value.includes(item.id)).length);
+const profitCurrentPrice = computed(() => calcWeightedPrice(profitForm.value.currentSmallPrice, profitForm.value.currentLargePrice, profitForm.value.largeSharePercent));
+const profitAdjustedPrice = computed(() => calcWeightedPrice(profitForm.value.adjustedSmallPrice, profitForm.value.adjustedLargePrice, profitForm.value.largeSharePercent));
+const profitCurrent = computed(() => runProfitScenario(profitCurrentPrice.value));
+const profitAdjusted = computed(() => runProfitScenario(profitAdjustedPrice.value));
+const profitDelta = computed(() => ({
+  price: profitAdjustedPrice.value - profitCurrentPrice.value,
+  profit: getProfitValue(profitAdjusted.value, 'profit') - getProfitValue(profitCurrent.value, 'profit'),
+  profitPerOrder: getProfitValue(profitAdjusted.value, 'profitPerOrder') - getProfitValue(profitCurrent.value, 'profitPerOrder'),
+  profitPerSettledOrder: getProfitValue(profitAdjusted.value, 'profitPerSettledOrder') - getProfitValue(profitCurrent.value, 'profitPerSettledOrder')
+}));
 
 function seoToolPage(path) {
   const page = seoPageByPath[path];
@@ -1493,6 +1568,247 @@ function normalizeDurationSeconds(value) {
   return numeric > 10000 ? numeric / 1000 : numeric;
 }
 
+function calcWeightedPrice(smallPrice, largePrice, largeSharePercent) {
+  const largeShare = clampNumber(Number(largeSharePercent) / 100, 0, 1);
+  const smallShare = 1 - largeShare;
+  return roundMoney(Number(smallPrice || 0) * smallShare + Number(largePrice || 0) * largeShare);
+}
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function roundMoney(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function getProfitValue(resultValue, key) {
+  const value = resultValue?.values?.[key];
+  return Number.isFinite(value) ? value : 0;
+}
+
+function runProfitScenario(price) {
+  const form = profitForm.value;
+  const values = {
+    orders: Math.max(0, Number(form.orderCount) || 0),
+    price: Number(price) || 0,
+    roi: Math.max(0.000001, Number(form.roi) || 0),
+    returnRate: clampNumber(Number(form.returnRatePercent) / 100, 0, 0.999999),
+    cost: Math.max(0, Number(form.productCost) || 0),
+    insurance: Math.max(0, Number(form.shippingInsurance) || 0),
+    serviceRate: clampNumber(Number(form.platformFeePercent) / 100, 0, 1)
+  };
+  const errors = [];
+
+  for (const meta of profitFormulaMeta) {
+    const formula = profitConfig.value.formulas?.[meta.key] || defaultProfitConfig().formulas[meta.key];
+    try {
+      values[meta.key] = safeEvaluateFormula(formula, values);
+      if (!Number.isFinite(values[meta.key])) values[meta.key] = 0;
+    } catch (err) {
+      values[meta.key] = 0;
+      errors.push(`${meta.label}：${err.message}`);
+    }
+  }
+
+  return { values, errors };
+}
+
+function safeEvaluateFormula(formula, variables) {
+  const tokens = tokenizeFormula(formula);
+  const output = [];
+  const operators = [];
+  const precedence = { '+': 1, '-': 1, '*': 2, '/': 2 };
+  let previousType = 'start';
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type === 'number' || token.type === 'name') {
+      output.push(token);
+      previousType = token.type;
+      continue;
+    }
+    if (token.value === '(') {
+      operators.push(token);
+      previousType = 'leftParen';
+      continue;
+    }
+    if (token.value === ')') {
+      while (operators.length && operators[operators.length - 1].value !== '(') output.push(operators.pop());
+      if (!operators.length) throw new Error('括号不匹配');
+      operators.pop();
+      previousType = 'rightParen';
+      continue;
+    }
+    if (token.type === 'operator') {
+      if (token.value === '-' && ['start', 'operator', 'leftParen'].includes(previousType)) {
+        output.push({ type: 'number', value: 0 });
+      }
+      while (
+        operators.length
+        && operators[operators.length - 1].type === 'operator'
+        && precedence[operators[operators.length - 1].value] >= precedence[token.value]
+      ) {
+        output.push(operators.pop());
+      }
+      operators.push(token);
+      previousType = 'operator';
+    }
+  }
+
+  while (operators.length) {
+    const token = operators.pop();
+    if (token.value === '(' || token.value === ')') throw new Error('括号不匹配');
+    output.push(token);
+  }
+
+  const stack = [];
+  for (const token of output) {
+    if (token.type === 'number') {
+      stack.push(Number(token.value));
+      continue;
+    }
+    if (token.type === 'name') {
+      if (!Object.prototype.hasOwnProperty.call(variables, token.value)) throw new Error(`未知变量 ${token.value}`);
+      stack.push(Number(variables[token.value]) || 0);
+      continue;
+    }
+    const right = stack.pop();
+    const left = stack.pop();
+    if (left === undefined || right === undefined) throw new Error('公式格式不正确');
+    if (token.value === '+') stack.push(left + right);
+    if (token.value === '-') stack.push(left - right);
+    if (token.value === '*') stack.push(left * right);
+    if (token.value === '/') stack.push(right === 0 ? 0 : left / right);
+  }
+  if (stack.length !== 1) throw new Error('公式格式不正确');
+  return stack[0];
+}
+
+function tokenizeFormula(formula) {
+  const text = String(formula || '').trim();
+  if (!text) throw new Error('公式不能为空');
+  if (!/^[\w\s+\-*/().]+$/.test(text)) throw new Error('只能使用变量、数字、括号和 + - * /');
+
+  const tokens = [];
+  let index = 0;
+  while (index < text.length) {
+    const char = text[index];
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (/[0-9.]/.test(char)) {
+      let end = index + 1;
+      while (end < text.length && /[0-9.]/.test(text[end])) end += 1;
+      const value = text.slice(index, end);
+      if (!/^\d*\.?\d+$/.test(value)) throw new Error(`数字格式不正确：${value}`);
+      tokens.push({ type: 'number', value });
+      index = end;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(char)) {
+      let end = index + 1;
+      while (end < text.length && /\w/.test(text[end])) end += 1;
+      tokens.push({ type: 'name', value: text.slice(index, end) });
+      index = end;
+      continue;
+    }
+    if ('+-*/()'.includes(char)) {
+      tokens.push({ type: '+-*/'.includes(char) ? 'operator' : 'paren', value: char });
+      index += 1;
+      continue;
+    }
+    throw new Error(`不支持的字符：${char}`);
+  }
+  return tokens;
+}
+
+function formatMoney(value) {
+  return `¥${(Number(value) || 0).toFixed(2)}`;
+}
+
+function formatNumber(value, digits = 2) {
+  return (Number(value) || 0).toFixed(digits);
+}
+
+function formatPercent(value) {
+  return `${((Number(value) || 0) * 100).toFixed(1)}%`;
+}
+
+async function loadProfitConfig() {
+  profitLoading.value = true;
+  profitMessage.value = '';
+  try {
+    const response = await fetch('/api/profit-config');
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '利润公式配置加载失败。');
+    profitStorageConfigured.value = payload.storageConfigured !== false;
+    profitConfig.value = normalizeProfitConfig(payload.config);
+    if (payload.message) {
+      profitMessage.value = payload.message;
+      profitMessageType.value = 'info';
+    }
+  } catch (err) {
+    profitMessage.value = err.message || '利润公式配置加载失败。';
+    profitMessageType.value = 'error';
+  } finally {
+    profitLoading.value = false;
+  }
+}
+
+function normalizeProfitConfig(config = {}) {
+  const defaults = defaultProfitConfig();
+  return {
+    updatedAt: config.updatedAt || null,
+    formulas: {
+      ...defaults.formulas,
+      ...(config.formulas || {})
+    }
+  };
+}
+
+async function saveProfitConfig() {
+  profitLoading.value = true;
+  profitMessage.value = '';
+  try {
+    const response = await fetch('/api/profit-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: profitConfig.value })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '利润公式保存失败。');
+    profitConfig.value = normalizeProfitConfig(payload.config);
+    profitMessage.value = payload.message || '利润测算公式已保存。';
+    profitMessageType.value = 'success';
+  } catch (err) {
+    profitMessage.value = err.message || '利润公式保存失败。';
+    profitMessageType.value = 'error';
+  } finally {
+    profitLoading.value = false;
+  }
+}
+
+async function resetProfitConfig() {
+  profitLoading.value = true;
+  profitMessage.value = '';
+  try {
+    const response = await fetch('/api/profit-config', { method: 'DELETE' });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '恢复默认公式失败。');
+    profitConfig.value = normalizeProfitConfig(payload.config);
+    profitMessage.value = payload.message || '已恢复默认公式。';
+    profitMessageType.value = 'success';
+  } catch (err) {
+    profitMessage.value = err.message || '恢复默认公式失败。';
+    profitMessageType.value = 'error';
+  } finally {
+    profitLoading.value = false;
+  }
+}
+
 function navigate(path) {
   window.history.pushState({}, '', path);
   currentPath.value = path;
@@ -1527,6 +1843,11 @@ window.onpopstate = () => {
 };
 
 function updateMeta() {
+  if (isProfitPage.value) {
+    document.title = `利润测算 | ${siteName}`;
+    updateMetaTags('电商广告投产、退货率、平台扣费和调价利润测算工具。');
+    return;
+  }
   if (isSharedListPage.value) {
     document.title = `共享视频池 | ${siteName}`;
     updateMetaTags('同事共享的视频素材列表，打开即可预览视频、复制文案或补充逐字稿。');
@@ -1566,6 +1887,11 @@ function updateMetaTags(description) {
 }
 
 async function loadRouteData() {
+  if (isProfitPage.value) {
+    await loadProfitConfig();
+    await loadSharedVideos({ silent: true });
+    return;
+  }
   if (isSharedListPage.value) {
     await loadSharedVideos();
     return;
@@ -3191,7 +3517,177 @@ onUnmounted(() => {
     </div>
 
     <main>
-      <section v-if="isSharedListPage" class="shared-page">
+      <section v-if="isProfitPage" class="profit-page">
+        <div class="profit-hero">
+          <p class="eyebrow"><Calculator :size="18" /> 利润测算</p>
+          <h1>电商投产利润测算器</h1>
+          <p class="subtitle">输入价格、ROI、退货率、货款和平台扣费，快速对比调价前后的单均利润和总利润。</p>
+          <div class="shared-page-actions">
+            <button class="secondary-button" type="button" @click="navigate('/')">返回解析工具</button>
+            <button class="secondary-button" type="button" :disabled="profitLoading" @click="loadProfitConfig">
+              {{ profitLoading ? '刷新中...' : '刷新公式' }}
+            </button>
+          </div>
+        </div>
+
+        <p v-if="profitMessage" class="alert" :class="profitMessageType">{{ profitMessage }}</p>
+
+        <div class="profit-layout">
+          <section class="profit-panel">
+            <div class="profit-panel-head">
+              <div>
+                <span>基础参数</span>
+                <h2>按真实经营口径填数</h2>
+              </div>
+            </div>
+            <div class="profit-form-grid">
+              <label>
+                <span>下单量</span>
+                <input v-model.number="profitForm.orderCount" type="number" min="0" step="1" />
+              </label>
+              <label>
+                <span>广告 ROI</span>
+                <input v-model.number="profitForm.roi" type="number" min="0.01" step="0.01" />
+              </label>
+              <label>
+                <span>退货率 (%)</span>
+                <input v-model.number="profitForm.returnRatePercent" type="number" min="0" max="99" step="0.1" />
+              </label>
+              <label>
+                <span>大号销量占比 (%)</span>
+                <input v-model.number="profitForm.largeSharePercent" type="number" min="0" max="100" step="1" />
+              </label>
+              <label>
+                <span>单均货款成本</span>
+                <input v-model.number="profitForm.productCost" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                <span>单均运费险</span>
+                <input v-model.number="profitForm.shippingInsurance" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                <span>平台服务费 (%)</span>
+                <input v-model.number="profitForm.platformFeePercent" type="number" min="0" max="100" step="0.1" />
+              </label>
+            </div>
+
+            <div class="profit-price-grid">
+              <article>
+                <strong>当前价格</strong>
+                <label>
+                  <span>小号价格</span>
+                  <input v-model.number="profitForm.currentSmallPrice" type="number" min="0" step="0.01" />
+                </label>
+                <label>
+                  <span>大号价格</span>
+                  <input v-model.number="profitForm.currentLargePrice" type="number" min="0" step="0.01" />
+                </label>
+                <em>当前预估均价 {{ formatMoney(profitCurrentPrice) }}</em>
+              </article>
+              <article>
+                <strong>调价后价格</strong>
+                <label>
+                  <span>小号价格</span>
+                  <input v-model.number="profitForm.adjustedSmallPrice" type="number" min="0" step="0.01" />
+                </label>
+                <label>
+                  <span>大号价格</span>
+                  <input v-model.number="profitForm.adjustedLargePrice" type="number" min="0" step="0.01" />
+                </label>
+                <em>调价后预估均价 {{ formatMoney(profitAdjustedPrice) }}</em>
+              </article>
+            </div>
+          </section>
+
+          <section class="profit-panel profit-summary-panel">
+            <div class="profit-panel-head">
+              <div>
+                <span>测算结果</span>
+                <h2>调价带来的利润变化</h2>
+              </div>
+            </div>
+            <div class="profit-summary-grid">
+              <article>
+                <span>均价提升</span>
+                <strong>{{ formatMoney(profitDelta.price) }}</strong>
+              </article>
+              <article>
+                <span>单均利润增加</span>
+                <strong>{{ formatMoney(profitDelta.profitPerOrder) }}</strong>
+              </article>
+              <article>
+                <span>总利润增加</span>
+                <strong>{{ formatMoney(profitDelta.profit) }}</strong>
+              </article>
+            </div>
+
+            <div class="profit-compare">
+              <article>
+                <h3>当前</h3>
+                <p><span>总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
+                <p><span>按下单数单均</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
+                <p><span>有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
+                <p><span>广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
+              </article>
+              <article>
+                <h3>调价后</h3>
+                <p><span>总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
+                <p><span>按下单数单均</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
+                <p><span>有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
+                <p><span>广告费</span><strong>{{ formatMoney(profitAdjusted.values.adCost) }}</strong></p>
+              </article>
+            </div>
+
+            <div class="profit-detail-table">
+              <div>
+                <span>指标</span>
+                <span>当前</span>
+                <span>调价后</span>
+              </div>
+              <div v-for="meta in profitFormulaMeta" :key="meta.key">
+                <span>{{ meta.label }}</span>
+                <span>{{ meta.key.includes('Orders') ? `${formatNumber(profitCurrent.values[meta.key], 0)} 单` : formatMoney(profitCurrent.values[meta.key]) }}</span>
+                <span>{{ meta.key.includes('Orders') ? `${formatNumber(profitAdjusted.values[meta.key], 0)} 单` : formatMoney(profitAdjusted.values[meta.key]) }}</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="profit-panel profit-config-panel">
+          <button type="button" class="profit-config-toggle" @click="profitConfigOpen = !profitConfigOpen">
+            <SlidersHorizontal :size="18" />
+            <span>公式配置</span>
+            <ChevronUp v-if="profitConfigOpen" :size="18" />
+            <ChevronDown v-else :size="18" />
+          </button>
+          <div v-if="profitConfigOpen" class="profit-config-body">
+            <p class="profit-config-note">
+              可用变量：
+              <em v-for="([name, label]) in profitVariableLabels" :key="name">{{ name }}={{ label }}</em>
+            </p>
+            <div class="profit-formula-grid">
+              <label v-for="meta in profitFormulaMeta" :key="meta.key">
+                <span>{{ meta.label }}</span>
+                <input v-model="profitConfig.formulas[meta.key]" type="text" />
+                <small>{{ meta.hint }}</small>
+              </label>
+            </div>
+            <div class="button-row profit-config-actions">
+              <button class="primary-button" type="button" :disabled="profitLoading || !profitStorageConfigured" @click="saveProfitConfig">
+                <Loader2 v-if="profitLoading" class="spin" :size="18" />
+                <Save v-else :size="18" />
+                保存公式
+              </button>
+              <button class="secondary-button" type="button" :disabled="profitLoading || !profitStorageConfigured" @click="resetProfitConfig">
+                <RotateCcw :size="18" />
+                恢复默认
+              </button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section v-else-if="isSharedListPage" class="shared-page">
         <div class="shared-page-head shared-list-head">
           <div class="shared-page-title">
             <Share2 :size="22" />
@@ -3367,6 +3863,16 @@ onUnmounted(() => {
               <Share2 :size="18" />
               <span>共享</span>
               <em v-if="unreadSharedCount" class="shared-unread-badge">{{ unreadSharedCount > 99 ? '99+' : unreadSharedCount }}</em>
+            </button>
+            <button
+              type="button"
+              class="secondary-button top-profit-button"
+              title="利润测算"
+              aria-label="利润测算"
+              @click="navigate('/profit')"
+            >
+              <Calculator :size="18" />
+              <span>利润测算</span>
             </button>
           </div>
           <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
