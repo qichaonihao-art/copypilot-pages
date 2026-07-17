@@ -18,6 +18,7 @@ import {
   Settings,
   Share2,
   Sparkles,
+  Trash2,
   Upload,
   Zap,
 } from 'lucide-vue-next';
@@ -2135,6 +2136,34 @@ function markSharedVideoViewed(id) {
   persistViewedSharedIds();
 }
 
+async function deleteSharedVideoItem(item) {
+  const id = typeof item === 'string' ? item : item?.id;
+  if (!id) return;
+  const title = typeof item === 'object' ? item.title : currentSharedRecord.value?.title;
+  const confirmed = window.confirm(`确定删除${title ? `「${title}」` : '这条共享视频'}吗？删除后同事也看不到这条记录。`);
+  if (!confirmed) return;
+
+  sharedLoading.value = true;
+  sharedError.value = '';
+  try {
+    const response = await fetch(`/api/shared-videos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '删除失败。');
+    sharedVideos.value = sharedVideos.value.filter((video) => video.id !== id);
+    viewedSharedIds.value = viewedSharedIds.value.filter((viewedId) => viewedId !== id);
+    persistViewedSharedIds();
+    sharedMessage.value = '共享视频已删除。';
+    notice.value = sharedMessage.value;
+    if (isShareDetailPage.value && sharedVideoId.value === id) {
+      navigate('/shared');
+    }
+  } catch (err) {
+    sharedError.value = err.message || '删除失败，请稍后重试。';
+  } finally {
+    sharedLoading.value = false;
+  }
+}
+
 async function shareCurrentVideo() {
   if (!result.value || !videoLinks.value.length) {
     error.value = '请先解析出可预览的视频，再分享给同事。';
@@ -3198,7 +3227,18 @@ onUnmounted(() => {
                 <span>{{ formatHistoryTime(item.createdAt) }}</span>
                 <span :class="{ ready: item.hasTranscript }">{{ item.hasTranscript ? '有逐字稿' : '待提取逐字稿' }}</span>
               </div>
-              <button type="button" class="secondary-button" @click="navigate(`/share/${item.id}`)">打开查看</button>
+              <div class="shared-card-actions">
+                <button type="button" class="secondary-button" @click="navigate(`/share/${item.id}`)">打开查看</button>
+                <button
+                  type="button"
+                  class="secondary-button shared-delete-button"
+                  :disabled="sharedLoading"
+                  @click="deleteSharedVideoItem(item)"
+                >
+                  <Trash2 :size="17" />
+                  删除
+                </button>
+              </div>
             </div>
           </article>
         </div>
@@ -3215,6 +3255,16 @@ onUnmounted(() => {
           <div class="shared-page-actions">
             <button class="secondary-button" type="button" @click="navigate('/shared')">返回共享池</button>
             <button class="secondary-button" type="button" @click="copyText(currentShareUrl)">复制当前链接</button>
+            <button
+              v-if="currentSharedRecord"
+              class="secondary-button shared-delete-button"
+              type="button"
+              :disabled="sharedLoading"
+              @click="deleteSharedVideoItem(currentSharedRecord)"
+            >
+              <Trash2 :size="17" />
+              删除记录
+            </button>
           </div>
           <p v-if="sharedLoading" class="alert info">正在读取共享视频...</p>
           <p v-if="sharedError" class="alert error">{{ sharedError }}</p>

@@ -1,5 +1,6 @@
 import { json } from '../_tikhub.js';
 import {
+  deleteSharedVideo,
   getSharedVideo,
   sharedErrorResponse,
   toShareSummary,
@@ -26,6 +27,15 @@ export async function onRequestPatch(context) {
   try {
     const record = await updateSharedVideoTranscript(context.env, context.params.id, body || {});
     return json({ ok: true, item: toShareSummary(record), record });
+  } catch (error) {
+    return sharedErrorResponse(error, json);
+  }
+}
+
+export async function onRequestDelete(context) {
+  try {
+    const deleted = await deleteSharedVideo(context.env, context.params.id);
+    return json({ ok: true, deleted });
   } catch (error) {
     return sharedErrorResponse(error, json);
   }

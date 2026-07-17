@@ -271,6 +271,18 @@ export async function getSharedVideo(env, id) {
   }
 }
 
+export async function deleteSharedVideo(env, id) {
+  const kv = getSharedKv(env);
+  if (!kv) throw makeSharedError('CONFIG_KV_MISSING', 'CONFIG_KV 未绑定，无法删除共享视频。', 500);
+  const cleanId = String(id || '').trim();
+  if (!cleanId) throw makeSharedError('SHARED_VIDEO_ID_MISSING', '缺少共享视频 ID。', 400);
+
+  await kv.delete(sharedVideoKey(cleanId));
+  const index = await readSharedIndex(kv);
+  await writeSharedIndex(kv, index.filter((item) => item.id !== cleanId));
+  return { id: cleanId };
+}
+
 export async function updateSharedVideoTranscript(env, id, input) {
   const kv = getSharedKv(env);
   if (!kv) throw makeSharedError('CONFIG_KV_MISSING', 'CONFIG_KV 未绑定，无法更新共享视频。', 500);
