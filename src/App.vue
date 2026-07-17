@@ -123,7 +123,7 @@ function toggleFaq(index) {
 
 const profitFormulaMeta = [
   { key: 'grossGmv', label: '总GMV', hint: '下单金额，通常按下单量和客单价计算。' },
-  { key: 'adCost', label: '广告费', hint: '广告费一般等于总GMV / ROI；优化方案会使用目标 ROI。' },
+  { key: 'adCost', label: '广告费', hint: '广告费一般等于总GMV / ROI；调整后方案会使用调整后 ROI。' },
   { key: 'settledOrders', label: '有效成交单量', hint: '扣掉退货后的最终成交单数。' },
   { key: 'settledGmv', label: '有效成交GMV', hint: '最终能提现、结算的成交金额。' },
   { key: 'platformFee', label: '平台技术服务费', hint: '默认按退款后的有效成交GMV扣。' },
@@ -1869,7 +1869,7 @@ window.onpopstate = () => {
 function updateMeta() {
   if (isProfitPage.value) {
     document.title = `ROI | ${siteName}`;
-    updateMetaTags('电商广告投产、退货率、平台扣费、调价和 ROI 优化测算工具。');
+    updateMetaTags('电商广告投产、退货率、平台扣费、调价和 ROI 调整测算工具。');
     return;
   }
   if (isSharedListPage.value) {
@@ -3546,7 +3546,7 @@ onUnmounted(() => {
           <div class="profit-hero-copy">
             <p class="eyebrow"><Calculator :size="18" /> ROI</p>
             <h1>电商 ROI 测算器</h1>
-            <p class="subtitle">测算提价或提高广告 ROI 后的单均利润和总利润。</p>
+            <p class="subtitle">对比调价和 ROI 调整前后的单均利润、总利润和保本线。</p>
           </div>
           <div class="shared-page-actions">
             <button class="secondary-button" type="button" @click="navigate('/')">返回解析工具</button>
@@ -3576,7 +3576,7 @@ onUnmounted(() => {
                 <input v-model.number="profitForm.roi" type="number" min="0.01" step="0.01" />
               </label>
               <label>
-                <span>目标广告 ROI</span>
+                <span>调整后广告 ROI</span>
                 <input v-model.number="profitForm.adjustedRoi" type="number" min="0.01" step="0.01" />
               </label>
               <label>
@@ -3615,7 +3615,7 @@ onUnmounted(() => {
                 <em>均价 {{ formatMoney(profitCurrentPrice) }} · ROI {{ formatNumber(profitForm.roi, 2) }}</em>
               </article>
               <article>
-                <strong>优化方案</strong>
+                <strong>调整后方案</strong>
                 <label>
                   <span>小号价格</span>
                   <input v-model.number="profitForm.adjustedSmallPrice" type="number" min="0" step="0.01" />
@@ -3633,7 +3633,7 @@ onUnmounted(() => {
             <div class="profit-panel-head">
               <div>
                 <span>测算结果</span>
-                <h2>提价和 ROI 优化后的变化</h2>
+                <h2>调价和 ROI 调整后的变化</h2>
               </div>
             </div>
             <div class="profit-summary-grid">
@@ -3676,7 +3676,7 @@ onUnmounted(() => {
                 <p><span>广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
               </article>
               <article>
-                <h3>优化后</h3>
+                <h3>调整后</h3>
                 <p><span>均价 / ROI</span><strong>{{ formatMoney(profitAdjustedPrice) }} / {{ formatNumber(profitForm.adjustedRoi, 2) }}</strong></p>
                 <p>
                   <span>保本 ROI</span>
@@ -3696,7 +3696,7 @@ onUnmounted(() => {
               <div>
                 <span>指标</span>
                 <span>当前</span>
-                <span>优化后</span>
+                <span>调整后</span>
               </div>
               <div v-for="meta in profitFormulaMeta" :key="meta.key">
                 <span>{{ meta.label }}</span>
