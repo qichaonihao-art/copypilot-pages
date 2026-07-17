@@ -1778,7 +1778,30 @@ h1 {
 
 .profit-compare strong {
   color: #0f172a;
+  display: inline-grid;
+  gap: 4px;
+  justify-items: end;
   font-weight: 950;
+  text-align: right;
+}
+
+.profit-compare strong em {
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.profit-compare strong em.success {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.profit-compare strong em.danger {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .profit-detail-table {

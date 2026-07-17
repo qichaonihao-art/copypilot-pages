@@ -589,6 +589,8 @@ const profitCurrentPrice = computed(() => calcWeightedPrice(profitForm.value.cur
 const profitAdjustedPrice = computed(() => calcWeightedPrice(profitForm.value.adjustedSmallPrice, profitForm.value.adjustedLargePrice, profitForm.value.largeSharePercent));
 const profitCurrent = computed(() => runProfitScenario(profitCurrentPrice.value));
 const profitAdjusted = computed(() => runProfitScenario(profitAdjustedPrice.value, profitForm.value.adjustedRoi));
+const currentBreakEvenRoi = computed(() => calculateBreakEvenRoi(profitCurrent.value));
+const adjustedBreakEvenRoi = computed(() => calculateBreakEvenRoi(profitAdjusted.value));
 const profitDelta = computed(() => ({
   price: profitAdjustedPrice.value - profitCurrentPrice.value,
   roi: (Number(profitForm.value.adjustedRoi) || 0) - (Number(profitForm.value.roi) || 0),
@@ -1588,6 +1590,26 @@ function roundMoney(value) {
 function getProfitValue(resultValue, key) {
   const value = resultValue?.values?.[key];
   return Number.isFinite(value) ? value : 0;
+}
+
+function calculateBreakEvenRoi(resultValue) {
+  const values = resultValue?.values || {};
+  const grossGmv = Number(values.grossGmv) || 0;
+  const nonAdProfitRoom =
+    (Number(values.settledGmv) || 0)
+    - (Number(values.platformFee) || 0)
+    - (Number(values.productCostTotal) || 0)
+    - (Number(values.insuranceTotal) || 0);
+  if (grossGmv <= 0 || nonAdProfitRoom <= 0) return 0;
+  return grossGmv / nonAdProfitRoom;
+}
+
+function breakEvenStatus(actualRoi, breakEvenRoi) {
+  const actual = Number(actualRoi) || 0;
+  const target = Number(breakEvenRoi) || 0;
+  if (target <= 0) return { className: 'danger', text: '无法保本' };
+  if (actual >= target) return { className: 'success', text: `高于保本线 ${formatNumber(actual - target, 2)}` };
+  return { className: 'danger', text: `低于保本线 ${formatNumber(target - actual, 2)}` };
 }
 
 function runProfitScenario(price, roiOverride = profitForm.value.roi) {
@@ -3631,12 +3653,23 @@ onUnmounted(() => {
                 <span>总利润增加</span>
                 <strong>{{ formatMoney(profitDelta.profit) }}</strong>
               </article>
+              <article>
+                <span>当前保本 ROI</span>
+                <strong>{{ formatNumber(currentBreakEvenRoi, 2) }}</strong>
+              </article>
             </div>
 
             <div class="profit-compare">
               <article>
                 <h3>当前</h3>
                 <p><span>均价 / ROI</span><strong>{{ formatMoney(profitCurrentPrice) }} / {{ formatNumber(profitForm.roi, 2) }}</strong></p>
+                <p>
+                  <span>保本 ROI</span>
+                  <strong>
+                    {{ formatNumber(currentBreakEvenRoi, 2) }}
+                    <em :class="breakEvenStatus(profitForm.roi, currentBreakEvenRoi).className">{{ breakEvenStatus(profitForm.roi, currentBreakEvenRoi).text }}</em>
+                  </strong>
+                </p>
                 <p><span>总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
                 <p><span>按下单数单均</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
                 <p><span>有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
@@ -3645,6 +3678,13 @@ onUnmounted(() => {
               <article>
                 <h3>优化后</h3>
                 <p><span>均价 / ROI</span><strong>{{ formatMoney(profitAdjustedPrice) }} / {{ formatNumber(profitForm.adjustedRoi, 2) }}</strong></p>
+                <p>
+                  <span>保本 ROI</span>
+                  <strong>
+                    {{ formatNumber(adjustedBreakEvenRoi, 2) }}
+                    <em :class="breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).className">{{ breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).text }}</em>
+                  </strong>
+                </p>
                 <p><span>总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
                 <p><span>按下单数单均</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
                 <p><span>有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
