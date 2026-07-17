@@ -3698,39 +3698,6 @@ onUnmounted(() => {
       </section>
     </main>
 
-    <footer v-if="!isHome" class="site-footer">
-      <div>
-        <strong>{{ siteName }}</strong>
-        <p>{{ uiText.footerDesc }}</p>
-      </div>
-      <div class="footer-links">
-        <nav>
-          <strong>{{ uiText.core }}</strong>
-          <a href="/" @click.prevent="navigate('/')">{{ uiText.nav[0] }}</a>
-          <a href="/video" @click.prevent="navigate('/video')">{{ uiText.nav[1] }}</a>
-          <a href="/text" @click.prevent="navigate('/text')">{{ uiText.nav[2] }}</a>
-          <a href="/image-text" @click.prevent="navigate('/image-text')">{{ uiText.nav[3] }}</a>
-          <a href="/article" @click.prevent="navigate('/article')">{{ uiText.nav[4] }}</a>
-          <a href="/shared" class="footer-shared-link" @click.prevent="navigate('/shared')">
-            共享视频池
-            <em v-if="unreadSharedCount" class="shared-unread-badge mini">{{ unreadSharedCount > 99 ? '99+' : unreadSharedCount }}</em>
-          </a>
-        </nav>
-        <nav class="footer-tools">
-          <strong>{{ uiText.hot }}</strong>
-          <a v-for="[path, label] in seoToolLinks" :key="path" :href="path" @click.prevent="navigate(path)">
-            {{ label }}
-          </a>
-        </nav>
-        <nav>
-          <strong>{{ uiText.info }}</strong>
-          <a v-for="[path, label] in legalLinks" :key="path" :href="path" @click.prevent="navigate(path)">
-            {{ label }}
-          </a>
-        </nav>
-      </div>
-    </footer>
-
     <div v-if="transcriptHistoryOpen" class="modal-backdrop" @click.self="transcriptHistoryOpen = false">
       <section class="transcript-history-modal" role="dialog" aria-modal="true" aria-label="最近提取记录">
         <div class="transcript-history-head">
