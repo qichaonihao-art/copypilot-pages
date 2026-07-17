@@ -3521,9 +3521,11 @@ onUnmounted(() => {
     <main>
       <section v-if="isProfitPage" class="profit-page">
         <div class="profit-hero">
-          <p class="eyebrow"><Calculator :size="18" /> ROI</p>
-          <h1>电商 ROI 测算器</h1>
-          <p class="subtitle">同时测算两个经营杠杆：提高销售价格，或提高广告 ROI 目标，快速对比优化前后的单均利润和总利润。</p>
+          <div class="profit-hero-copy">
+            <p class="eyebrow"><Calculator :size="18" /> ROI</p>
+            <h1>电商 ROI 测算器</h1>
+            <p class="subtitle">测算提价或提高广告 ROI 后的单均利润和总利润。</p>
+          </div>
           <div class="shared-page-actions">
             <button class="secondary-button" type="button" @click="navigate('/')">返回解析工具</button>
             <button class="secondary-button" type="button" :disabled="profitLoading" @click="loadProfitConfig">
