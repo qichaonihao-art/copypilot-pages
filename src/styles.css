@@ -1699,14 +1699,15 @@ h1 {
 .profit-summary-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .profit-summary-grid article {
   background: linear-gradient(135deg, #eff6ff, #ecfdf5);
   border: 1px solid #c7d2fe;
   border-radius: 12px;
-  padding: 16px;
+  min-width: 0;
+  padding: 18px 14px;
 }
 
 .profit-summary-grid span,
@@ -1720,10 +1721,14 @@ h1 {
 .profit-summary-grid strong {
   color: #0f172a;
   display: block;
-  font-size: 28px;
+  font-size: clamp(24px, 2.8vw, 34px);
   letter-spacing: 0;
   line-height: 1.1;
   margin-top: 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .profit-compare {
