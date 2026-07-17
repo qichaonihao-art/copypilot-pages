@@ -55,7 +55,7 @@ export async function onRequestPut(context) {
     updatedAt: new Date().toISOString()
   };
   await kv.put(PROFIT_CONFIG_KEY, JSON.stringify(config));
-  return json({ ok: true, message: '利润测算公式已保存。', config });
+  return json({ ok: true, message: 'ROI 公式已保存。', config });
 }
 
 export async function onRequestDelete(context) {

@@ -1743,7 +1743,7 @@ async function loadProfitConfig() {
   try {
     const response = await fetch('/api/profit-config');
     const payload = await response.json();
-    if (!response.ok || !payload.ok) throw new Error(payload.message || '利润公式配置加载失败。');
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'ROI 公式配置加载失败。');
     profitStorageConfigured.value = payload.storageConfigured !== false;
     profitConfig.value = normalizeProfitConfig(payload.config);
     if (payload.message) {
@@ -1751,7 +1751,7 @@ async function loadProfitConfig() {
       profitMessageType.value = 'info';
     }
   } catch (err) {
-    profitMessage.value = err.message || '利润公式配置加载失败。';
+    profitMessage.value = err.message || 'ROI 公式配置加载失败。';
     profitMessageType.value = 'error';
   } finally {
     profitLoading.value = false;
@@ -1779,12 +1779,12 @@ async function saveProfitConfig() {
       body: JSON.stringify({ config: profitConfig.value })
     });
     const payload = await response.json();
-    if (!response.ok || !payload.ok) throw new Error(payload.message || '利润公式保存失败。');
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'ROI 公式保存失败。');
     profitConfig.value = normalizeProfitConfig(payload.config);
-    profitMessage.value = payload.message || '利润测算公式已保存。';
+    profitMessage.value = payload.message || 'ROI 公式已保存。';
     profitMessageType.value = 'success';
   } catch (err) {
-    profitMessage.value = err.message || '利润公式保存失败。';
+    profitMessage.value = err.message || 'ROI 公式保存失败。';
     profitMessageType.value = 'error';
   } finally {
     profitLoading.value = false;
@@ -1844,8 +1844,8 @@ window.onpopstate = () => {
 
 function updateMeta() {
   if (isProfitPage.value) {
-    document.title = `利润测算 | ${siteName}`;
-    updateMetaTags('电商广告投产、退货率、平台扣费和调价利润测算工具。');
+    document.title = `ROI | ${siteName}`;
+    updateMetaTags('电商广告投产、退货率、平台扣费和调价 ROI 测算工具。');
     return;
   }
   if (isSharedListPage.value) {
@@ -3519,8 +3519,8 @@ onUnmounted(() => {
     <main>
       <section v-if="isProfitPage" class="profit-page">
         <div class="profit-hero">
-          <p class="eyebrow"><Calculator :size="18" /> 利润测算</p>
-          <h1>电商投产利润测算器</h1>
+          <p class="eyebrow"><Calculator :size="18" /> ROI</p>
+          <h1>电商 ROI 测算器</h1>
           <p class="subtitle">输入价格、ROI、退货率、货款和平台扣费，快速对比调价前后的单均利润和总利润。</p>
           <div class="shared-page-actions">
             <button class="secondary-button" type="button" @click="navigate('/')">返回解析工具</button>
@@ -3867,12 +3867,12 @@ onUnmounted(() => {
             <button
               type="button"
               class="secondary-button top-profit-button"
-              title="利润测算"
-              aria-label="利润测算"
+              title="ROI"
+              aria-label="ROI"
               @click="navigate('/profit')"
             >
               <Calculator :size="18" />
-              <span>利润测算</span>
+              <span>ROI</span>
             </button>
           </div>
           <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
