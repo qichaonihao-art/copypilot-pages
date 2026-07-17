@@ -1154,6 +1154,7 @@ h1 {
   gap: 6px;
   min-height: 36px;
   padding: 0 10px;
+  position: relative;
 }
 
 .extract-box .top-shared-button:hover:not(:disabled) {
@@ -1167,6 +1168,44 @@ h1 {
 .top-shared-button svg {
   color: #059669;
   flex: 0 0 auto;
+}
+
+.shared-unread-badge {
+  align-items: center;
+  background: #ef4444;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.28);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  height: 20px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 20px;
+  padding: 0 5px;
+}
+
+.top-shared-button .shared-unread-badge {
+  position: absolute;
+  right: -9px;
+  top: -10px;
+}
+
+.footer-shared-link {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.shared-unread-badge.mini {
+  border-width: 1px;
+  font-size: 10px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 4px;
 }
 
 .alert {
@@ -1365,6 +1404,11 @@ h1 {
   overflow: hidden;
 }
 
+.shared-card.unread {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 20px 54px rgba(37, 99, 235, 0.12);
+}
+
 .shared-card-cover {
   align-items: center;
   aspect-ratio: 16 / 9;
@@ -1375,13 +1419,44 @@ h1 {
   justify-content: center;
   overflow: hidden;
   padding: 0;
+  position: relative;
   width: 100%;
+}
+
+.shared-card-new {
+  background: #ef4444;
+  border-radius: 999px;
+  box-shadow: 0 10px 22px rgba(239, 68, 68, 0.26);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  left: 14px;
+  line-height: 1;
+  padding: 7px 10px;
+  position: absolute;
+  top: 14px;
+  z-index: 1;
 }
 
 .shared-card-cover img {
   height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+.shared-cover-empty {
+  align-items: center;
+  color: #2563eb;
+  display: grid;
+  font-size: 14px;
+  font-weight: 850;
+  gap: 8px;
+  justify-items: center;
+}
+
+.shared-cover-empty em {
+  color: #64748b;
+  font-style: normal;
 }
 
 .shared-card-body {

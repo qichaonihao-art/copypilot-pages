@@ -25,6 +25,7 @@ import { seoPageByPath } from './seo-pages.js';
 
 const siteName = 'CopyPilot';
 const FREE_TRANSCRIBE_MAX_SECONDS = 5 * 60;
+const SHARED_VIEWED_KEY = 'copypilot-shared-viewed-v1';
 const initialPath = window.location.pathname;
 const currentPath = ref(initialPath);
 const lang = ref(initialPath.startsWith('/en/') ? 'en' : localStorage.getItem('copypilot-lang') || 'zh');
@@ -63,6 +64,7 @@ const sharedError = ref('');
 const sharedMessage = ref('');
 const shareLoading = ref(false);
 const currentSharedRecord = ref(null);
+const viewedSharedIds = ref(loadViewedSharedIds());
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -515,6 +517,7 @@ const isLinkInputPage = computed(() => !isFilePage.value);
 const authButtonText = computed(() => currentUser.value ? currentUser.value.email.split('@')[0] : uiText.value.login);
 const isAdmin = computed(() => Boolean(currentUser.value?.isAdmin || currentUser.value?.plan === 'admin'));
 const currentPlanLabel = computed(() => formatPlanName(currentUser.value?.plan));
+const unreadSharedCount = computed(() => sharedVideos.value.filter((item) => item?.id && !viewedSharedIds.value.includes(item.id)).length);
 
 function seoToolPage(path) {
   const page = seoPageByPath[path];
@@ -768,7 +771,7 @@ const resultTitle = computed(() => {
     result.value?.itemInfo?.itemStruct?.share_info?.share_title ||
     '';
 
-  return cleanTitle(explicitTitle || publishedText.value);
+  return cleanTitle(explicitTitle) || makeTitleFromDescription(publishedText.value || resultText.value);
 });
 
 const resultHeading = computed(() => {
@@ -854,9 +857,23 @@ const tags = computed(() => {
 
 function cleanTitle(value) {
   const text = String(value || '').trim();
-  if (!text) return '';
+  if (!text || text === '未命名视频') return '';
   return text
     .split(/[#\n\r]/)[0]
+    .replace(/^[\s"“”'‘’]+|[\s"“”'‘’]+$/g, '')
+    .replace(/[，,。；;！!？?]$/, '')
+    .slice(0, 80);
+}
+
+function makeTitleFromDescription(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const withoutTags = text
+    .replace(/#[^\s#，,。；;！!？?]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const candidate = withoutTags || text.replace(/^#+/, '');
+  return String(candidate)
     .replace(/^[\s"“”'‘’]+|[\s"“”'‘’]+$/g, '')
     .replace(/[，,。；;！!？?]$/, '')
     .slice(0, 80);
@@ -928,16 +945,30 @@ const imageLinks = computed(() => {
 const resultCover = computed(() => {
   const data = result.value || {};
   const detail = primaryDetail.value || data.aweme_detail || data.itemInfo?.itemStruct || data.note || data;
-  return normalizeMediaUrl(
-    data.cover ||
-    data.coverUrl ||
-    data.authorAvatar ||
-    detail.cover_url ||
-    detail.cover?.url_list?.[0] ||
-    pickImageUrl(detail.cover) ||
-    imageLinks.value[0] ||
-    ''
-  );
+  const candidates = [
+    data.cover,
+    data.coverUrl,
+    data.cover_url,
+    data.thumbnail,
+    data.thumbnailUrl,
+    data.poster,
+    detail.cover,
+    detail.coverUrl,
+    detail.cover_url,
+    detail.thumbnail,
+    detail.thumbnailUrl,
+    detail.poster,
+    detail.video?.cover,
+    detail.video?.origin_cover,
+    detail.video?.dynamic_cover,
+    imageLinks.value[0],
+    findImageUrlsDeep(data).find((link) => !/avatar|headimg|head_img|profile/i.test(link))
+  ];
+  for (const candidate of candidates) {
+    const url = normalizeMediaUrl(pickImageUrl(candidate) || candidate);
+    if (url) return url;
+  }
+  return '';
 });
 
 const resultAuthor = computed(() => {
@@ -1540,7 +1571,9 @@ async function loadRouteData() {
   }
   if (isShareDetailPage.value) {
     await loadSharedVideo(sharedVideoId.value);
+    return;
   }
+  await loadSharedVideos({ silent: true });
 }
 
 updateMeta();
@@ -2068,7 +2101,7 @@ function clearInput() {
 
 function sharedVideoPayload() {
   return {
-    title: resultTitle.value || '未命名视频',
+    title: resultTitle.value || makeTitleFromDescription(publishedText.value || resultText.value) || `${resultAuthor.value || '同事'}的视频`,
     description: publishedText.value || resultText.value || '',
     author: resultAuthor.value,
     cover: resultCover.value,
@@ -2076,6 +2109,30 @@ function sharedVideoPayload() {
     sourceUrl: extractUrl(url.value) || result.value?.sourceUrl || '',
     result: result.value || {}
   };
+}
+
+function loadViewedSharedIds() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SHARED_VIEWED_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter(Boolean).map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistViewedSharedIds() {
+  localStorage.setItem(SHARED_VIEWED_KEY, JSON.stringify(viewedSharedIds.value.slice(0, 300)));
+}
+
+function isSharedVideoUnread(id) {
+  return Boolean(id && !viewedSharedIds.value.includes(String(id)));
+}
+
+function markSharedVideoViewed(id) {
+  const cleanId = String(id || '').trim();
+  if (!cleanId || viewedSharedIds.value.includes(cleanId)) return;
+  viewedSharedIds.value = [cleanId, ...viewedSharedIds.value].slice(0, 300);
+  persistViewedSharedIds();
 }
 
 async function shareCurrentVideo() {
@@ -2095,11 +2152,18 @@ async function shareCurrentVideo() {
     if (!response.ok || !payload.ok) throw new Error(payload.message || '共享失败。');
     const absoluteUrl = `${window.location.origin}${payload.shareUrl}`;
     await navigator.clipboard.writeText(absoluteUrl).catch(() => null);
-    sharedMessage.value = '已加入共享视频池，分享链接已复制。';
+    if (payload.item?.id) {
+      markSharedVideoViewed(payload.item.id);
+      sharedVideos.value = [payload.item, ...sharedVideos.value.filter((item) => item.id !== payload.item.id)];
+    }
+    sharedMessage.value = payload.duplicate
+      ? '这个链接已经保存过了，原共享链接已复制。'
+      : '已加入共享视频池，分享链接已复制。';
     notice.value = sharedMessage.value;
     trackEvent('share_video', {
       platform: result.value?.platform || '',
-      hasTranscript: Boolean(result.value?.transcript)
+      hasTranscript: Boolean(result.value?.transcript),
+      duplicate: Boolean(payload.duplicate)
     });
   } catch (err) {
     error.value = err.message || '共享失败，请稍后重试。';
@@ -2108,18 +2172,21 @@ async function shareCurrentVideo() {
   }
 }
 
-async function loadSharedVideos() {
-  sharedLoading.value = true;
-  sharedError.value = '';
+async function loadSharedVideos(options = {}) {
+  const silent = Boolean(options.silent);
+  if (!silent) {
+    sharedLoading.value = true;
+    sharedError.value = '';
+  }
   try {
     const response = await fetch('/api/shared-videos');
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.message || '共享视频列表读取失败。');
     sharedVideos.value = Array.isArray(payload.items) ? payload.items : [];
   } catch (err) {
-    sharedError.value = err.message || '共享视频列表读取失败。';
+    if (!silent) sharedError.value = err.message || '共享视频列表读取失败。';
   } finally {
-    sharedLoading.value = false;
+    if (!silent) sharedLoading.value = false;
   }
 }
 
@@ -2135,6 +2202,7 @@ async function loadSharedVideo(id) {
     currentSharedRecord.value = payload.record;
     result.value = payload.record?.result || {};
     url.value = payload.record?.sourceUrl || '';
+    markSharedVideoViewed(payload.record?.id || id);
     notice.value = payload.record?.result?.transcript
       ? '已载入共享视频和逐字稿。'
       : '已载入共享视频，可直接观看；需要逐字稿时可点击提取。';
@@ -3113,10 +3181,14 @@ onUnmounted(() => {
           <span>正在读取共享视频...</span>
         </div>
         <div v-else-if="sharedVideos.length" class="shared-grid">
-          <article v-for="item in sharedVideos" :key="item.id" class="shared-card">
+          <article v-for="item in sharedVideos" :key="item.id" class="shared-card" :class="{ unread: isSharedVideoUnread(item.id) }">
             <button type="button" class="shared-card-cover" @click="navigate(`/share/${item.id}`)">
+              <span v-if="isSharedVideoUnread(item.id)" class="shared-card-new">未读</span>
               <img v-if="item.cover" :src="item.cover" :alt="item.title" loading="lazy" referrerpolicy="no-referrer" />
-              <FileVideo v-else :size="34" />
+              <span v-else class="shared-cover-empty">
+                <FileVideo :size="34" />
+                <em>暂无封面</em>
+              </span>
             </button>
             <div class="shared-card-body">
               <strong>{{ item.title }}</strong>
@@ -3248,6 +3320,7 @@ onUnmounted(() => {
             >
               <Share2 :size="18" />
               <span>共享</span>
+              <em v-if="unreadSharedCount" class="shared-unread-badge">{{ unreadSharedCount > 99 ? '99+' : unreadSharedCount }}</em>
             </button>
           </div>
           <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
@@ -3592,7 +3665,10 @@ onUnmounted(() => {
           <a href="/text" @click.prevent="navigate('/text')">{{ uiText.nav[2] }}</a>
           <a href="/image-text" @click.prevent="navigate('/image-text')">{{ uiText.nav[3] }}</a>
           <a href="/article" @click.prevent="navigate('/article')">{{ uiText.nav[4] }}</a>
-          <a href="/shared" @click.prevent="navigate('/shared')">共享视频池</a>
+          <a href="/shared" class="footer-shared-link" @click.prevent="navigate('/shared')">
+            共享视频池
+            <em v-if="unreadSharedCount" class="shared-unread-badge mini">{{ unreadSharedCount > 99 ? '99+' : unreadSharedCount }}</em>
+          </a>
         </nav>
         <nav class="footer-tools">
           <strong>{{ uiText.hot }}</strong>

@@ -24,9 +24,11 @@ export async function onRequestPost(context) {
   }
 
   try {
-    const record = await createSharedVideo(context.env, body || {});
+    const { record, duplicate } = await createSharedVideo(context.env, body || {});
     return json({
       ok: true,
+      duplicate,
+      message: duplicate ? '这个链接已经保存过了。' : '共享视频已保存。',
       item: toShareSummary(record),
       shareUrl: `/share/${record.id}`,
       record
