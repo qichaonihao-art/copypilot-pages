@@ -4132,7 +4132,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome && !isSharedPage" id="features" class="section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage && !isProfitPage" id="features" class="section">
         <div class="section-title center">
           <p class="eyebrow"><Sparkles :size="18" /> {{ uiText.featureEyebrow }}</p>
           <h2>{{ uiText.featureTitle }}</h2>
@@ -4146,7 +4146,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome && !isSharedPage" id="steps" class="section steps-section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage && !isProfitPage" id="steps" class="section steps-section">
         <div class="section-title center">
           <p class="eyebrow"><Check :size="18" /> {{ uiText.stepsEyebrow }}</p>
           <h2>{{ uiText.stepsTitle }}</h2>
@@ -4160,7 +4160,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome && !isSharedPage" id="faq" class="section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage && !isProfitPage" id="faq" class="section">
         <div class="section-title center faq-title">
           <h2>{{ uiText.faqTitle }}</h2>
           <p>{{ uiText.faqSubtitle }}</p>
@@ -4186,7 +4186,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome && !isSharedPage" class="section seo-section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage && !isProfitPage" class="section seo-section">
         <div class="section-title center">
           <p class="eyebrow"><Sparkles :size="18" /> {{ uiText.seoEyebrow }}</p>
           <h2>{{ uiText.seoTitle }}</h2>
