@@ -16,6 +16,7 @@ import {
   Link,
   Loader2,
   Settings,
+  Share2,
   Sparkles,
   Upload,
   Zap,
@@ -56,6 +57,12 @@ const wechatCookieStatus = ref({
   lastTestAt: null,
   lastTestResult: null
 });
+const sharedVideos = ref([]);
+const sharedLoading = ref(false);
+const sharedError = ref('');
+const sharedMessage = ref('');
+const shareLoading = ref(false);
+const currentSharedRecord = ref(null);
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -490,7 +497,15 @@ const toolPage = computed(() => {
   };
 });
 const activeSeoPage = computed(() => seoPageByPath[currentPath.value] || null);
-const isHome = computed(() => !toolPage.value);
+const isSharedListPage = computed(() => currentPath.value === '/shared');
+const sharedVideoId = computed(() => {
+  const match = currentPath.value.match(/^\/share\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+});
+const isShareDetailPage = computed(() => Boolean(sharedVideoId.value));
+const isSharedPage = computed(() => isSharedListPage.value || isShareDetailPage.value);
+const currentShareUrl = computed(() => `${window.location.origin}${currentPath.value}`);
+const isHome = computed(() => !toolPage.value && !isSharedPage.value);
 const pageTheme = computed(() => toolPage.value?.theme || 'blue');
 const isLegalPage = computed(() => toolPage.value?.type === 'legal');
 const isFilePage = computed(() => toolPage.value?.type === 'media-file' || (toolPage.value?.type === 'text' && textMode.value === 'file'));
@@ -758,6 +773,7 @@ const resultTitle = computed(() => {
 
 const resultHeading = computed(() => {
   if (!result.value) return '提取结果';
+  if (isShareDetailPage.value) return '共享视频详情';
   if (isHome.value) return '智能提取结果';
   if (toolPage.value?.type === 'text') return '文案提取结果';
   if (toolPage.value?.type === 'video') return '视频提取结果';
@@ -909,6 +925,36 @@ const imageLinks = computed(() => {
   return [...new Set(links.map(normalizeMediaUrl).filter(Boolean))].slice(0, 8);
 });
 
+const resultCover = computed(() => {
+  const data = result.value || {};
+  const detail = primaryDetail.value || data.aweme_detail || data.itemInfo?.itemStruct || data.note || data;
+  return normalizeMediaUrl(
+    data.cover ||
+    data.coverUrl ||
+    data.authorAvatar ||
+    detail.cover_url ||
+    detail.cover?.url_list?.[0] ||
+    pickImageUrl(detail.cover) ||
+    imageLinks.value[0] ||
+    ''
+  );
+});
+
+const resultAuthor = computed(() => {
+  const data = result.value || {};
+  const detail = primaryDetail.value || data.aweme_detail || data.itemInfo?.itemStruct || data.note || data;
+  return (
+    data.author ||
+    data.authorInfo?.nickname ||
+    detail.author?.nickname ||
+    detail.authorInfo?.nickname ||
+    detail.user?.nickname ||
+    detail.user?.userName ||
+    data.nickname ||
+    ''
+  );
+});
+
 const primaryDetail = computed(() => findPrimaryDetail(result.value));
 const articleHtml = computed(() => {
   const detail = primaryDetail.value || {};
@@ -916,7 +962,7 @@ const articleHtml = computed(() => {
 });
 
 const hasResultContent = computed(() => result.value || videoLinks.value.length || imageLinks.value.length);
-const shouldShowVideoResult = computed(() => videoLinks.value.length && (isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
+const shouldShowVideoResult = computed(() => videoLinks.value.length && (isShareDetailPage.value || isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
 const shouldShowImageResult = computed(() => {
   if (result.value?.platform === 'wechat_channels') return false;
   return imageLinks.value.length && (isHome.value || ['image', 'article'].includes(toolPage.value?.type));
@@ -924,7 +970,7 @@ const shouldShowImageResult = computed(() => {
 const hasVideoTranscript = computed(() => Boolean(result.value?.transcript && resultText.value));
 const shouldShowVideoTextUnderPreview = computed(() => {
   if (!shouldShowVideoResult.value || !hasVideoTranscript.value) return false;
-  return isHome.value || toolPage.value?.type === 'video' || toolPage.value?.type === 'text';
+  return isShareDetailPage.value || isHome.value || toolPage.value?.type === 'video' || toolPage.value?.type === 'text';
 });
 const transcriptStageItems = computed(() => {
   const order = ['source', 'download', 'extract_audio', 'asr', 'result'];
@@ -945,7 +991,7 @@ const transcriptStageItems = computed(() => {
   }));
 });
 const shouldShowMainTextBlock = computed(() => {
-  if (hasVideoTranscript.value && (isHome.value || toolPage.value?.type === 'video')) return false;
+  if (hasVideoTranscript.value && (isShareDetailPage.value || isHome.value || toolPage.value?.type === 'video')) return false;
   return true;
 });
 const shouldShowPublishedText = computed(() => {
@@ -1429,6 +1475,7 @@ function navigate(path) {
   if (path === '/article' || path === '/wechat-article' || path === '/article-studio') articleView.value = 'text';
   resetResult();
   updateMeta();
+  loadRouteData();
   trackEvent('page_view', { path });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1441,11 +1488,23 @@ function toggleLang() {
 
 window.onpopstate = () => {
   currentPath.value = window.location.pathname;
+  resetResult();
   updateMeta();
+  loadRouteData();
   trackEvent('page_view', { path: currentPath.value, navigation: 'popstate' });
 };
 
 function updateMeta() {
+  if (isSharedListPage.value) {
+    document.title = `共享视频池 | ${siteName}`;
+    updateMetaTags('同事共享的视频素材列表，打开即可预览视频、复制文案或补充逐字稿。');
+    return;
+  }
+  if (isShareDetailPage.value) {
+    document.title = `${resultTitle.value || currentSharedRecord.value?.title || '共享视频'} | ${siteName}`;
+    updateMetaTags('查看同事共享的视频素材，可直接预览视频、下载素材和提取逐字稿。');
+    return;
+  }
   const page = pageMap[currentPath.value];
   const activePage = toolPage.value || page;
   const seoPage = activeSeoPage.value;
@@ -1454,6 +1513,10 @@ function updateMeta() {
     : activePage?.seoTitle || activePage?.title || uiText.value.heroTitle);
   const description = seoPage?.description || activePage?.subtitle || uiText.value.heroSubtitle;
   document.title = `${title} | ${siteName}`;
+  updateMetaTags(description);
+}
+
+function updateMetaTags(description) {
   let meta = document.querySelector('meta[name="description"]');
   if (!meta) {
     meta = document.createElement('meta');
@@ -1468,6 +1531,16 @@ function updateMeta() {
     document.head.appendChild(canonical);
   }
   canonical.setAttribute('href', `${window.location.origin}${currentPath.value}`);
+}
+
+async function loadRouteData() {
+  if (isSharedListPage.value) {
+    await loadSharedVideos();
+    return;
+  }
+  if (isShareDetailPage.value) {
+    await loadSharedVideo(sharedVideoId.value);
+  }
 }
 
 updateMeta();
@@ -1993,6 +2066,108 @@ function clearInput() {
   });
 }
 
+function sharedVideoPayload() {
+  return {
+    title: resultTitle.value || '未命名视频',
+    description: publishedText.value || resultText.value || '',
+    author: resultAuthor.value,
+    cover: resultCover.value,
+    platform: result.value?.platform || (url.value ? detectPlatformFromUrl(url.value) : ''),
+    sourceUrl: extractUrl(url.value) || result.value?.sourceUrl || '',
+    result: result.value || {}
+  };
+}
+
+async function shareCurrentVideo() {
+  if (!result.value || !videoLinks.value.length) {
+    error.value = '请先解析出可预览的视频，再分享给同事。';
+    return;
+  }
+  shareLoading.value = true;
+  sharedMessage.value = '';
+  try {
+    const response = await fetch('/api/shared-videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sharedVideoPayload())
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '共享失败。');
+    const absoluteUrl = `${window.location.origin}${payload.shareUrl}`;
+    await navigator.clipboard.writeText(absoluteUrl).catch(() => null);
+    sharedMessage.value = '已加入共享视频池，分享链接已复制。';
+    notice.value = sharedMessage.value;
+    trackEvent('share_video', {
+      platform: result.value?.platform || '',
+      hasTranscript: Boolean(result.value?.transcript)
+    });
+  } catch (err) {
+    error.value = err.message || '共享失败，请稍后重试。';
+  } finally {
+    shareLoading.value = false;
+  }
+}
+
+async function loadSharedVideos() {
+  sharedLoading.value = true;
+  sharedError.value = '';
+  try {
+    const response = await fetch('/api/shared-videos');
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '共享视频列表读取失败。');
+    sharedVideos.value = Array.isArray(payload.items) ? payload.items : [];
+  } catch (err) {
+    sharedError.value = err.message || '共享视频列表读取失败。';
+  } finally {
+    sharedLoading.value = false;
+  }
+}
+
+async function loadSharedVideo(id) {
+  if (!id) return;
+  sharedLoading.value = true;
+  sharedError.value = '';
+  currentSharedRecord.value = null;
+  try {
+    const response = await fetch(`/api/shared-videos/${encodeURIComponent(id)}`);
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '共享视频读取失败。');
+    currentSharedRecord.value = payload.record;
+    result.value = payload.record?.result || {};
+    url.value = payload.record?.sourceUrl || '';
+    notice.value = payload.record?.result?.transcript
+      ? '已载入共享视频和逐字稿。'
+      : '已载入共享视频，可直接观看；需要逐字稿时可点击提取。';
+    await nextTick();
+    updateMeta();
+  } catch (err) {
+    sharedError.value = err.message || '共享视频读取失败。';
+    result.value = null;
+  } finally {
+    sharedLoading.value = false;
+  }
+}
+
+async function updateSharedTranscript(text) {
+  if (!isShareDetailPage.value || !sharedVideoId.value || !text) return;
+  try {
+    const response = await fetch(`/api/shared-videos/${encodeURIComponent(sharedVideoId.value)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript: text,
+        result: result.value || {}
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '共享逐字稿保存失败。');
+    currentSharedRecord.value = payload.record;
+    sharedMessage.value = '逐字稿已同步到共享视频。';
+  } catch (err) {
+    sharedMessage.value = err.message || '逐字稿已提取，但同步到共享视频失败。';
+  }
+}
+
 function formatWechatExtractError(payload) {
   if (!payload?.error) return '';
   if (payload.error === 'WECHAT_COOKIE_MISSING') {
@@ -2188,6 +2363,7 @@ async function transcribeExtractedVideo(mode = 'precise') {
       url: cleanUrl,
       text
     });
+    await updateSharedTranscript(text);
     notice.value = '✓ 视频逐字稿已提取完成';
     trackEvent('extract_success', {
       inputType: 'extracted_video',
@@ -2480,6 +2656,8 @@ function resetResult() {
   error.value = '';
   notice.value = '';
   result.value = null;
+  sharedMessage.value = '';
+  if (!isShareDetailPage.value) currentSharedRecord.value = null;
   articleView.value = 'text';
   articleDraftHtml.value = '';
   articleRewriteLoading.value = false;
@@ -2536,6 +2714,7 @@ function scrollToTop() {
 onMounted(async () => {
   await loadMe();
   await loadWechatCookieStatus();
+  await loadRouteData();
   trackEvent('page_view', { path: currentPath.value });
   window.addEventListener('scroll', onScroll, { passive: true });
 });
@@ -2915,7 +3094,63 @@ onUnmounted(() => {
     </div>
 
     <main>
-      <section v-if="isLegalPage" class="legal-hero">
+      <section v-if="isSharedListPage" class="shared-page">
+        <div class="shared-page-head">
+          <p class="eyebrow"><Share2 :size="18" /> 共享视频池</p>
+          <h1>同事共享的视频素材</h1>
+          <p class="subtitle">这里保存已经解析过的视频，同事打开即可直接预览、下载或补充逐字稿。</p>
+          <div class="shared-page-actions">
+            <button class="primary-button" type="button" @click="navigate('/')">去解析新视频</button>
+            <button class="secondary-button" type="button" :disabled="sharedLoading" @click="loadSharedVideos">
+              {{ sharedLoading ? '刷新中...' : '刷新列表' }}
+            </button>
+          </div>
+        </div>
+
+        <p v-if="sharedError" class="alert error">{{ sharedError }}</p>
+        <div v-if="sharedLoading && !sharedVideos.length" class="shared-empty">
+          <Loader2 class="spin" :size="24" />
+          <span>正在读取共享视频...</span>
+        </div>
+        <div v-else-if="sharedVideos.length" class="shared-grid">
+          <article v-for="item in sharedVideos" :key="item.id" class="shared-card">
+            <button type="button" class="shared-card-cover" @click="navigate(`/share/${item.id}`)">
+              <img v-if="item.cover" :src="item.cover" :alt="item.title" loading="lazy" referrerpolicy="no-referrer" />
+              <FileVideo v-else :size="34" />
+            </button>
+            <div class="shared-card-body">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description || '暂无简介' }}</p>
+              <div class="shared-meta">
+                <span>{{ item.author || '未知作者' }}</span>
+                <span>{{ formatHistoryTime(item.createdAt) }}</span>
+                <span :class="{ ready: item.hasTranscript }">{{ item.hasTranscript ? '有逐字稿' : '待提取逐字稿' }}</span>
+              </div>
+              <button type="button" class="secondary-button" @click="navigate(`/share/${item.id}`)">打开查看</button>
+            </div>
+          </article>
+        </div>
+        <p v-else class="shared-empty">还没有共享视频。解析成功后点击“分享给同事”就会出现在这里。</p>
+      </section>
+
+      <section v-else-if="isShareDetailPage" class="shared-page shared-detail-hero">
+        <div class="shared-page-head">
+          <p class="eyebrow"><Share2 :size="18" /> 共享视频</p>
+          <h1>{{ currentSharedRecord?.title || resultTitle || '共享视频' }}</h1>
+          <p class="subtitle">
+            {{ currentSharedRecord?.description || '这个视频由同事共享，可直接预览；如果还没有逐字稿，可以在下方手动提取。' }}
+          </p>
+          <div class="shared-page-actions">
+            <button class="secondary-button" type="button" @click="navigate('/shared')">返回共享池</button>
+            <button class="secondary-button" type="button" @click="copyText(currentShareUrl)">复制当前链接</button>
+          </div>
+          <p v-if="sharedLoading" class="alert info">正在读取共享视频...</p>
+          <p v-if="sharedError" class="alert error">{{ sharedError }}</p>
+          <p v-if="sharedMessage" class="alert success">{{ sharedMessage }}</p>
+        </div>
+      </section>
+
+      <section v-else-if="isLegalPage" class="legal-hero">
         <p class="eyebrow">{{ toolPage.badge }}</p>
         <h1>{{ toolPage.title }}</h1>
         <p class="subtitle">{{ toolPage.subtitle }}</p>
@@ -3003,6 +3238,16 @@ onUnmounted(() => {
             >
               <Settings :size="18" />
               <span>配置</span>
+            </button>
+            <button
+              type="button"
+              class="secondary-button top-shared-button"
+              title="共享视频池"
+              aria-label="共享视频池"
+              @click="navigate('/shared')"
+            >
+              <Share2 :size="18" />
+              <span>共享</span>
             </button>
           </div>
           <p v-if="error && !videoTranscriptLoading" class="alert error">{{ error }}</p>
@@ -3170,7 +3415,18 @@ onUnmounted(() => {
                     <Captions v-else :size="17" />
                     {{ videoTranscriptLoading && transcriptMode === 'precise' ? '提取中...' : '提取逐字稿' }}
                   </button>
+                  <button
+                    v-if="!isShareDetailPage"
+                    class="video-share-action"
+                    :disabled="shareLoading"
+                    @click="shareCurrentVideo"
+                  >
+                    <Loader2 v-if="shareLoading" class="spin" :size="15" />
+                    <Share2 v-else :size="17" />
+                    {{ shareLoading ? '共享中...' : '分享给同事' }}
+                  </button>
                 </div>
+                <p v-if="sharedMessage && !isShareDetailPage" class="shared-inline-message">{{ sharedMessage }}</p>
                 <div v-if="videoLinks.length > 1" class="media-links">
                   <a v-for="(link, index) in videoLinks.slice(1)" :key="link" :href="link" download target="_blank" rel="noreferrer">
                     备用源 {{ index + 2 }}
@@ -3251,7 +3507,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome" id="features" class="section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage" id="features" class="section">
         <div class="section-title center">
           <p class="eyebrow"><Sparkles :size="18" /> {{ uiText.featureEyebrow }}</p>
           <h2>{{ uiText.featureTitle }}</h2>
@@ -3265,7 +3521,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome" id="steps" class="section steps-section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage" id="steps" class="section steps-section">
         <div class="section-title center">
           <p class="eyebrow"><Check :size="18" /> {{ uiText.stepsEyebrow }}</p>
           <h2>{{ uiText.stepsTitle }}</h2>
@@ -3279,7 +3535,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome" id="faq" class="section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage" id="faq" class="section">
         <div class="section-title center faq-title">
           <h2>{{ uiText.faqTitle }}</h2>
           <p>{{ uiText.faqSubtitle }}</p>
@@ -3305,7 +3561,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="!isLegalPage && !isHome" class="section seo-section">
+      <section v-if="!isLegalPage && !isHome && !isSharedPage" class="section seo-section">
         <div class="section-title center">
           <p class="eyebrow"><Sparkles :size="18" /> {{ uiText.seoEyebrow }}</p>
           <h2>{{ uiText.seoTitle }}</h2>
@@ -3336,6 +3592,7 @@ onUnmounted(() => {
           <a href="/text" @click.prevent="navigate('/text')">{{ uiText.nav[2] }}</a>
           <a href="/image-text" @click.prevent="navigate('/image-text')">{{ uiText.nav[3] }}</a>
           <a href="/article" @click.prevent="navigate('/article')">{{ uiText.nav[4] }}</a>
+          <a href="/shared" @click.prevent="navigate('/shared')">共享视频池</a>
         </nav>
         <nav class="footer-tools">
           <strong>{{ uiText.hot }}</strong>

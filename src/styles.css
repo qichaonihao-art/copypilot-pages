@@ -1052,7 +1052,7 @@ h1 {
 .extract-box .button-row {
   display: grid;
   gap: 10px 12px;
-  grid-template-columns: repeat(4, max-content);
+  grid-template-columns: repeat(5, max-content);
   justify-content: center;
 }
 
@@ -1141,6 +1141,31 @@ h1 {
 
 .top-config-button svg {
   color: #475569;
+  flex: 0 0 auto;
+}
+
+.extract-box .top-shared-button {
+  align-items: center;
+  background: #f0fdfa;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  color: #047857;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.extract-box .top-shared-button:hover:not(:disabled) {
+  background: #dcfce7;
+  border-color: #86efac;
+  box-shadow: 0 10px 26px rgba(16, 185, 129, 0.14);
+  color: #065f46;
+  transform: translateY(-1px);
+}
+
+.top-shared-button svg {
+  color: #059669;
   flex: 0 0 auto;
 }
 
@@ -1273,6 +1298,145 @@ h1 {
 
 .progress-section {
   padding-top: 34px;
+}
+
+.shared-page {
+  margin: 0 auto;
+  max-width: 1120px;
+  padding: 56px 6vw 28px;
+}
+
+.shared-page-head {
+  background: rgba(248, 251, 255, 0.9);
+  border: 1px solid #d8e3ef;
+  border-radius: 16px;
+  box-shadow:
+    0 24px 72px rgba(15, 23, 42, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.62) inset;
+  display: grid;
+  gap: 14px;
+  margin: 0 auto 22px;
+  max-width: 980px;
+  padding: 30px;
+  text-align: center;
+}
+
+.shared-page-head .eyebrow {
+  justify-content: center;
+  margin: 0;
+}
+
+.shared-page-head h1 {
+  color: #0f172a;
+  font-size: clamp(34px, 6vw, 72px);
+  letter-spacing: 0;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.shared-page-head .subtitle {
+  color: #64748b;
+  font-size: clamp(16px, 2vw, 21px);
+  font-weight: 800;
+  line-height: 1.65;
+  margin: 0 auto;
+  max-width: 760px;
+}
+
+.shared-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.shared-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.shared-card {
+  background: rgba(248, 251, 255, 0.92);
+  border: 1px solid #d8e3ef;
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.07);
+  display: grid;
+  overflow: hidden;
+}
+
+.shared-card-cover {
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #dbeafe, #ecfdf5);
+  border: 0;
+  color: #2563eb;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+
+.shared-card-cover img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.shared-card-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.shared-card-body strong {
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.shared-card-body p {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.shared-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shared-meta span {
+  background: #eef4fb;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 5px 9px;
+}
+
+.shared-meta span.ready {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.shared-empty {
+  align-items: center;
+  color: #64748b;
+  display: flex;
+  font-weight: 900;
+  gap: 10px;
+  justify-content: center;
+  min-height: 120px;
+  text-align: center;
+}
+
+.shared-detail-hero {
+  padding-bottom: 0;
 }
 
 .progress-card {
@@ -1674,6 +1838,32 @@ h1 {
 .video-actions button.video-transcript-action svg {
   color: #e0f2fe;
   flex: 0 0 auto;
+}
+
+.video-actions button.video-share-action {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: rgba(16, 185, 129, 0.72);
+  box-shadow: 0 10px 26px rgba(16, 185, 129, 0.22);
+  color: #fff;
+  gap: 7px;
+  padding: 0 18px;
+}
+
+.video-actions button.video-share-action:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 13px 30px rgba(16, 185, 129, 0.30);
+  color: #fff;
+}
+
+.shared-inline-message {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 900;
+  margin: 0;
+  padding: 10px 12px;
 }
 
 .video-actions button:disabled {
