@@ -1341,11 +1341,38 @@ h1 {
 
 .shared-page {
   margin: 0 auto;
-  max-width: 1120px;
-  padding: 56px 6vw 28px;
+  max-width: 1180px;
+  padding: 42px 6vw 28px;
 }
 
 .shared-page-head {
+  margin: 0 auto 28px;
+  max-width: 1120px;
+}
+
+.shared-list-head {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.shared-page-title {
+  align-items: center;
+  color: #2563eb;
+  display: flex;
+  gap: 12px;
+}
+
+.shared-page-title h1 {
+  color: #0f172a;
+  font-size: clamp(30px, 4vw, 48px);
+  letter-spacing: 0;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.shared-detail-head {
   background: rgba(248, 251, 255, 0.9);
   border: 1px solid #d8e3ef;
   border-radius: 16px;
@@ -1354,18 +1381,11 @@ h1 {
     0 0 0 1px rgba(255, 255, 255, 0.62) inset;
   display: grid;
   gap: 14px;
-  margin: 0 auto 22px;
-  max-width: 980px;
   padding: 30px;
   text-align: center;
 }
 
-.shared-page-head .eyebrow {
-  justify-content: center;
-  margin: 0;
-}
-
-.shared-page-head h1 {
+.shared-detail-head h1 {
   color: #0f172a;
   font-size: clamp(34px, 6vw, 72px);
   letter-spacing: 0;
@@ -1373,7 +1393,7 @@ h1 {
   margin: 0;
 }
 
-.shared-page-head .subtitle {
+.shared-detail-head .subtitle {
   color: #64748b;
   font-size: clamp(16px, 2vw, 21px);
   font-weight: 800;
@@ -1391,17 +1411,24 @@ h1 {
 
 .shared-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
 .shared-card {
-  background: rgba(248, 251, 255, 0.92);
+  background: rgba(248, 251, 255, 0.96);
   border: 1px solid #d8e3ef;
-  border-radius: 14px;
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.07);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
   display: grid;
   overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.shared-card:hover {
+  border-color: #b9d3f3;
+  box-shadow: 0 20px 42px rgba(37, 99, 235, 0.11);
+  transform: translateY(-2px);
 }
 
 .shared-card.unread {
@@ -1447,42 +1474,34 @@ h1 {
 .shared-cover-empty {
   align-items: center;
   color: #2563eb;
-  display: grid;
-  font-size: 14px;
-  font-weight: 850;
-  gap: 8px;
-  justify-items: center;
-}
-
-.shared-cover-empty em {
-  color: #64748b;
-  font-style: normal;
+  display: flex;
+  justify-content: center;
 }
 
 .shared-card-body {
   display: grid;
-  gap: 10px;
-  padding: 16px;
+  gap: 14px;
+  padding: 18px;
 }
 
 .shared-card-body strong {
   color: #0f172a;
-  font-size: 17px;
+  display: -webkit-box;
+  font-size: 18px;
   line-height: 1.35;
-}
-
-.shared-card-body p {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 750;
-  line-height: 1.55;
-  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .shared-card-actions {
-  display: grid;
+  align-items: stretch;
+  display: flex;
   gap: 8px;
-  grid-template-columns: 1fr max-content;
+}
+
+.shared-card-actions .secondary-button:first-child {
+  flex: 1;
 }
 
 .shared-delete-button {
@@ -1490,34 +1509,15 @@ h1 {
   border-color: rgba(248, 113, 113, 0.45);
   color: #b91c1c;
   display: inline-flex;
-  gap: 6px;
   justify-content: center;
+  min-width: 46px;
+  padding: 0 12px;
 }
 
 .shared-delete-button:hover:not(:disabled) {
   background: #fef2f2;
   border-color: rgba(239, 68, 68, 0.6);
   color: #991b1b;
-}
-
-.shared-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.shared-meta span {
-  background: #eef4fb;
-  border-radius: 999px;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 5px 9px;
-}
-
-.shared-meta span.ready {
-  background: #dcfce7;
-  color: #047857;
 }
 
 .shared-empty {
@@ -1533,6 +1533,25 @@ h1 {
 
 .shared-detail-hero {
   padding-bottom: 0;
+}
+
+@media (max-width: 700px) {
+  .shared-page {
+    padding: 28px 18px 20px;
+  }
+
+  .shared-list-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shared-page-title h1 {
+    font-size: 32px;
+  }
+
+  .shared-page-actions {
+    justify-content: flex-start;
+  }
 }
 
 .progress-card {

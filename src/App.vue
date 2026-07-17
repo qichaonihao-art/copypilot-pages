@@ -3192,10 +3192,11 @@ onUnmounted(() => {
 
     <main>
       <section v-if="isSharedListPage" class="shared-page">
-        <div class="shared-page-head">
-          <p class="eyebrow"><Share2 :size="18" /> 共享视频池</p>
-          <h1>同事共享的视频素材</h1>
-          <p class="subtitle">这里保存已经解析过的视频，同事打开即可直接预览、下载或补充逐字稿。</p>
+        <div class="shared-page-head shared-list-head">
+          <div class="shared-page-title">
+            <Share2 :size="22" />
+            <h1>共享素材</h1>
+          </div>
           <div class="shared-page-actions">
             <button class="primary-button" type="button" @click="navigate('/')">去解析新视频</button>
             <button class="secondary-button" type="button" :disabled="sharedLoading" @click="loadSharedVideos">
@@ -3221,12 +3222,6 @@ onUnmounted(() => {
             </button>
             <div class="shared-card-body">
               <strong>{{ item.title }}</strong>
-              <p>{{ item.description || '暂无简介' }}</p>
-              <div class="shared-meta">
-                <span>{{ item.author || '未知作者' }}</span>
-                <span>{{ formatHistoryTime(item.createdAt) }}</span>
-                <span :class="{ ready: item.hasTranscript }">{{ item.hasTranscript ? '有逐字稿' : '待提取逐字稿' }}</span>
-              </div>
               <div class="shared-card-actions">
                 <button type="button" class="secondary-button" @click="navigate(`/share/${item.id}`)">打开查看</button>
                 <button
@@ -3234,9 +3229,10 @@ onUnmounted(() => {
                   class="secondary-button shared-delete-button"
                   :disabled="sharedLoading"
                   @click="deleteSharedVideoItem(item)"
+                  title="删除共享素材"
+                  aria-label="删除共享素材"
                 >
                   <Trash2 :size="17" />
-                  删除
                 </button>
               </div>
             </div>
@@ -3246,7 +3242,7 @@ onUnmounted(() => {
       </section>
 
       <section v-else-if="isShareDetailPage" class="shared-page shared-detail-hero">
-        <div class="shared-page-head">
+        <div class="shared-page-head shared-detail-head">
           <p class="eyebrow"><Share2 :size="18" /> 共享视频</p>
           <h1>{{ currentSharedRecord?.title || resultTitle || '共享视频' }}</h1>
           <p class="subtitle">
