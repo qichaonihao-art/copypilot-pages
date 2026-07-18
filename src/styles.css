@@ -1950,6 +1950,50 @@ h1 {
   width: min(860px, 100%);
 }
 
+.share-name-modal {
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22);
+  display: grid;
+  gap: 18px;
+  max-width: 520px;
+  padding: 18px;
+  width: min(520px, 100%);
+}
+
+.share-name-field {
+  display: grid;
+  gap: 8px;
+}
+
+.share-name-field span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.share-name-field input {
+  background: #f8fbff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  min-height: 44px;
+  outline: none;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.share-name-field input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+}
+
+.share-name-actions {
+  justify-content: flex-end;
+  margin: 0;
+}
+
 .profit-shares-list {
   display: grid;
   gap: 10px;

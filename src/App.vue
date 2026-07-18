@@ -69,6 +69,8 @@ const sharedLoading = ref(false);
 const sharedError = ref('');
 const sharedMessage = ref('');
 const shareLoading = ref(false);
+const shareNameOpen = ref(false);
+const shareNameDraft = ref('');
 const currentSharedRecord = ref(null);
 const viewedSharedIds = ref(loadViewedSharedIds());
 const profitLoading = ref(false);
@@ -2720,9 +2722,9 @@ function clearInput() {
   });
 }
 
-function sharedVideoPayload() {
+function sharedVideoPayload(customTitle = '') {
   return {
-    title: resultTitle.value || makeTitleFromDescription(publishedText.value || resultText.value) || `${resultAuthor.value || '同事'}的视频`,
+    title: customTitle.trim() || resultTitle.value || makeTitleFromDescription(publishedText.value || resultText.value) || `${resultAuthor.value || '同事'}的视频`,
     description: publishedText.value || resultText.value || '',
     author: resultAuthor.value,
     cover: resultCover.value,
@@ -2784,7 +2786,31 @@ async function deleteSharedVideoItem(item) {
   }
 }
 
-async function shareCurrentVideo() {
+function openShareNameDialog() {
+  if (!result.value || !videoLinks.value.length) {
+    error.value = '请先解析出可预览的视频，再分享给同事。';
+    return;
+  }
+  error.value = '';
+  sharedMessage.value = '';
+  shareNameDraft.value = '';
+  shareNameOpen.value = true;
+}
+
+function closeShareNameDialog() {
+  if (shareLoading.value) return;
+  shareNameOpen.value = false;
+  shareNameDraft.value = '';
+}
+
+async function confirmShareCurrentVideo() {
+  const customTitle = shareNameDraft.value.trim();
+  shareNameOpen.value = false;
+  await shareCurrentVideo(customTitle);
+  shareNameDraft.value = '';
+}
+
+async function shareCurrentVideo(customTitle = '') {
   if (!result.value || !videoLinks.value.length) {
     error.value = '请先解析出可预览的视频，再分享给同事。';
     return;
@@ -2795,7 +2821,7 @@ async function shareCurrentVideo() {
     const response = await fetch('/api/shared-videos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sharedVideoPayload())
+      body: JSON.stringify(sharedVideoPayload(customTitle))
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.message || '共享失败。');
@@ -4415,7 +4441,7 @@ onUnmounted(() => {
                     v-if="!isShareDetailPage"
                     class="video-share-action"
                     :disabled="shareLoading"
-                    @click="shareCurrentVideo"
+                    @click="openShareNameDialog"
                   >
                     <Loader2 v-if="shareLoading" class="spin" :size="15" />
                     <Share2 v-else :size="17" />
@@ -4655,6 +4681,30 @@ onUnmounted(() => {
           </article>
         </div>
         <p v-else class="transcript-history-empty">还没有共享的 ROI 数据。填写完成后点击“共享此套数据”。</p>
+      </section>
+    </div>
+
+    <div v-if="shareNameOpen" class="modal-backdrop" @click.self="closeShareNameDialog">
+      <section class="share-name-modal" role="dialog" aria-modal="true" aria-label="备注共享视频">
+        <div class="transcript-history-head">
+          <div>
+            <strong>备注这条视频</strong>
+            <span>不填写也可以，系统会自动生成名称</span>
+          </div>
+          <button type="button" class="modal-close-button" :disabled="shareLoading" @click="closeShareNameDialog">关闭</button>
+        </div>
+        <label class="share-name-field">
+          <span>视频名称（可选）</span>
+          <input v-model="shareNameDraft" maxlength="80" placeholder="例如：竞品账号近期爆款素材" @keyup.enter="confirmShareCurrentVideo" />
+        </label>
+        <div class="button-row share-name-actions">
+          <button type="button" class="primary-button" :disabled="shareLoading" @click="confirmShareCurrentVideo">
+            <Loader2 v-if="shareLoading" class="spin" :size="17" />
+            <Share2 v-else :size="17" />
+            {{ shareLoading ? '共享中...' : '确认共享' }}
+          </button>
+          <button type="button" class="secondary-button" :disabled="shareLoading" @click="closeShareNameDialog">取消</button>
+        </div>
       </section>
     </div>
 
