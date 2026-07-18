@@ -82,6 +82,11 @@ const profitFormulaDraft = ref('');
 const profitForm = ref(loadProfitForm());
 let previousProfitOrderCount = Number(profitForm.value.orderCount) || 0;
 const profitConfig = ref(defaultProfitConfig());
+const profitShares = ref([]);
+const profitSharesOpen = ref(false);
+const profitSharesLoading = ref(false);
+const profitSharesError = ref('');
+const profitShareSaving = ref(false);
 const selectedFile = ref(null);
 const loading = ref(false);
 const error = ref('');
@@ -672,6 +677,106 @@ const profitInputWarnings = computed(() => {
   }
   return warnings;
 });
+
+function profitSharePayload() {
+  return {
+    title: `ROI 测算记录 · ${formatHistoryTime(Date.now())}`,
+    form: { ...profitForm.value },
+    current: { ...(profitCurrent.value.values || {}), errors: [...(profitCurrent.value.errors || [])] },
+    adjusted: { ...(profitAdjusted.value.values || {}), errors: [...(profitAdjusted.value.errors || [])] },
+    delta: { ...profitDelta.value }
+  };
+}
+
+function applyProfitShareRecord(record) {
+  if (!record?.form || typeof record.form !== 'object') return;
+  const next = emptyProfitForm();
+  for (const key of Object.keys(next)) next[key] = record.form[key] ?? '';
+  profitForm.value = next;
+  profitSharesOpen.value = false;
+  profitMessage.value = '已载入共享数据，可以继续修改参数并重新测算。';
+  profitMessageType.value = 'success';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function loadProfitShares() {
+  profitSharesLoading.value = true;
+  profitSharesError.value = '';
+  try {
+    const response = await fetch('/api/profit-shares');
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'ROI 共享库读取失败。');
+    profitShares.value = Array.isArray(payload.items) ? payload.items : [];
+  } catch (err) {
+    profitSharesError.value = err.message || 'ROI 共享库读取失败，请稍后重试。';
+  } finally {
+    profitSharesLoading.value = false;
+  }
+}
+
+async function openProfitShares() {
+  profitSharesOpen.value = true;
+  await loadProfitShares();
+}
+
+async function shareProfitData() {
+  const hasData = Object.values(profitForm.value).some((value) => value !== '' && value !== null && value !== undefined);
+  if (!hasData) {
+    profitMessage.value = '请先填写一套 ROI 数据，再保存到共享库。';
+    profitMessageType.value = 'error';
+    return;
+  }
+  profitShareSaving.value = true;
+  profitMessage.value = '';
+  try {
+    const response = await fetch('/api/profit-shares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profitSharePayload())
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'ROI 数据共享失败。');
+    profitMessage.value = '这套 ROI 数据已保存到共享库，同事可以直接打开使用。';
+    profitMessageType.value = 'success';
+    await loadProfitShares();
+  } catch (err) {
+    profitMessage.value = err.message || 'ROI 数据共享失败，请稍后重试。';
+    profitMessageType.value = 'error';
+  } finally {
+    profitShareSaving.value = false;
+  }
+}
+
+async function loadProfitShare(id) {
+  profitSharesLoading.value = true;
+  profitSharesError.value = '';
+  try {
+    const response = await fetch(`/api/profit-shares/${encodeURIComponent(id)}`);
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'ROI 共享记录读取失败。');
+    applyProfitShareRecord(payload.record);
+  } catch (err) {
+    profitSharesError.value = err.message || 'ROI 共享记录读取失败。';
+  } finally {
+    profitSharesLoading.value = false;
+  }
+}
+
+async function deleteProfitShare(id) {
+  if (!id || !window.confirm('确定删除这套 ROI 共享数据吗？删除后同事也看不到这条记录。')) return;
+  profitSharesLoading.value = true;
+  profitSharesError.value = '';
+  try {
+    const response = await fetch(`/api/profit-shares/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'ROI 共享记录删除失败。');
+    profitShares.value = profitShares.value.filter((item) => item.id !== id);
+  } catch (err) {
+    profitSharesError.value = err.message || 'ROI 共享记录删除失败。';
+  } finally {
+    profitSharesLoading.value = false;
+  }
+}
 
 function seoToolPage(path) {
   const page = seoPageByPath[path];
@@ -2078,7 +2183,7 @@ function updateMetaTags(description) {
 async function loadRouteData() {
   if (isProfitPage.value) {
     await loadProfitConfig();
-    await loadSharedVideos({ silent: true });
+    await Promise.all([loadSharedVideos({ silent: true }), loadProfitShares()]);
     return;
   }
   if (isSharedListPage.value) {
@@ -3726,6 +3831,15 @@ onUnmounted(() => {
           </div>
           <div class="shared-page-actions">
             <button class="secondary-button" type="button" @click="navigate('/')">返回解析工具</button>
+            <button class="secondary-button" type="button" @click="openProfitShares">
+              <History :size="17" />
+              数据共享库
+            </button>
+            <button class="primary-button" type="button" :disabled="profitShareSaving" @click="shareProfitData">
+              <Loader2 v-if="profitShareSaving" class="spin" :size="17" />
+              <Share2 v-else :size="17" />
+              {{ profitShareSaving ? '保存中...' : '共享此套数据' }}
+            </button>
             <button class="secondary-button" type="button" :disabled="profitLoading" @click="loadProfitConfig">
               {{ profitLoading ? '刷新中...' : '刷新公式' }}
             </button>
@@ -4508,6 +4622,39 @@ onUnmounted(() => {
             恢复默认公式
           </button>
         </div>
+      </section>
+    </div>
+
+    <div v-if="profitSharesOpen" class="modal-backdrop" @click.self="profitSharesOpen = false">
+      <section class="profit-shares-modal" role="dialog" aria-modal="true" aria-label="ROI 数据共享库">
+        <div class="transcript-history-head">
+          <div>
+            <strong>ROI 数据共享库</strong>
+            <span>同事可以载入整套参数，继续修改测算</span>
+          </div>
+          <button type="button" class="modal-close-button" @click="profitSharesOpen = false">关闭</button>
+        </div>
+        <p v-if="profitSharesError" class="alert error">{{ profitSharesError }}</p>
+        <div v-if="profitSharesLoading && !profitShares.length" class="transcript-history-empty">
+          <Loader2 class="spin" :size="22" /> 正在读取共享库...
+        </div>
+        <div v-else-if="profitShares.length" class="profit-shares-list">
+          <article v-for="item in profitShares" :key="item.id" class="profit-share-item">
+            <div class="profit-share-item-main">
+              <strong>{{ item.title }}</strong>
+              <span>{{ formatHistoryTime(item.createdAt) }} · {{ item.orderCount || 0 }} 单 · 当前销售GMV {{ formatMoney(item.currentGmv) }}</span>
+            </div>
+            <div class="profit-share-item-results">
+              <span>当前利润 {{ formatMoney(item.currentProfit) }}</span>
+              <span>调整后 {{ formatMoney(item.adjustedProfit) }}</span>
+            </div>
+            <div class="profit-share-item-actions">
+              <button type="button" class="primary-button" @click="loadProfitShare(item.id)">载入使用</button>
+              <button type="button" class="secondary-button" @click="deleteProfitShare(item.id)">删除</button>
+            </div>
+          </article>
+        </div>
+        <p v-else class="transcript-history-empty">还没有共享的 ROI 数据。填写完成后点击“共享此套数据”。</p>
       </section>
     </div>
 
