@@ -1,11 +1,13 @@
 export const PROFIT_CONFIG_KEY = 'PROFIT_CALCULATOR_CONFIG';
-export const PROFIT_CONFIG_VERSION = '2026-07-18-cashflow-v2';
+export const PROFIT_CONFIG_VERSION = '2026-07-18-roi-dual-v4';
 
 export const PROFIT_VARIABLES = [
   'orders',
   'price',
   'roi',
   'returnRate',
+  'preShipReturnRate',
+  'postShipReturnRate',
   'cost',
   'insurance',
   'serviceRate'
@@ -17,31 +19,40 @@ export const DEFAULT_PROFIT_CONFIG = {
     adCost: 'grossGmv / roi',
     settledOrders: 'orders * (1 - returnRate)',
     settledGmv: 'settledOrders * price',
+    shippedOrders: 'orders * (1 - preShipReturnRate)',
     productCostTotal: 'settledOrders * cost',
-    insuranceTotal: 'orders * insurance',
-    withdrawBase: 'settledGmv - adCost - insuranceTotal',
+    insuranceTotal: 'shippedOrders * insurance',
+    withdrawBase: 'settledGmv - insuranceTotal',
     platformFee: 'withdrawBase * serviceRate',
-    profit: 'withdrawBase - platformFee - productCostTotal',
+    profit: 'withdrawBase - platformFee - adCost - productCostTotal',
     profitPerOrder: 'profit / orders',
     profitPerSettledOrder: 'profit / settledOrders',
-    breakEvenRoi: 'grossGmv / (settledGmv - insuranceTotal - productCostTotal / (1 - serviceRate))'
+    actualGrossMarginRate: '(withdrawBase * (1 - serviceRate) - productCostTotal) / grossGmv',
+    breakEvenRoi: '1 / actualGrossMarginRate',
+    collectionBreakEvenRoi: 'settledGmv / (withdrawBase * (1 - serviceRate) - productCostTotal)'
   },
   version: PROFIT_CONFIG_VERSION,
   updatedAt: null
 };
 
-const LEGACY_PROFIT_FORMULAS = {
-  insuranceTotal: 'settledOrders * insurance',
-  platformFee: 'settledGmv * serviceRate',
-  profit: 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal',
-  breakEvenRoi: 'grossGmv / (settledGmv - platformFee - productCostTotal - insuranceTotal)'
-};
+const LEGACY_PROFIT_FORMULAS = [
+  ['insuranceTotal', 'settledOrders * insurance'],
+  ['insuranceTotal', 'orders * insurance'],
+  ['withdrawBase', 'settledGmv - adCost - insuranceTotal'],
+  ['platformFee', 'settledGmv * serviceRate'],
+  ['profit', 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal'],
+  ['profit', 'withdrawBase - platformFee - productCostTotal'],
+  ['breakEvenRoi', 'grossGmv / (withdrawBase * (1 - serviceRate) - productCostTotal)'],
+  ['breakEvenRoi', 'grossGmv / (settledGmv - platformFee - productCostTotal - insuranceTotal)'],
+  ['breakEvenRoi', 'grossGmv / (settledGmv - insuranceTotal - productCostTotal / (1 - serviceRate))']
+];
 
 export const PROFIT_FORMULA_LABELS = {
   grossGmv: '总GMV',
   adCost: '广告费',
   settledOrders: '有效成交单量',
   settledGmv: '有效成交GMV',
+  shippedOrders: '已发货单量',
   productCostTotal: '货款成本',
   insuranceTotal: '运费险',
   withdrawBase: '提现前余额',
@@ -49,7 +60,9 @@ export const PROFIT_FORMULA_LABELS = {
   profit: '最终利润',
   profitPerOrder: '下单单均利润',
   profitPerSettledOrder: '按成交数单均利润',
-  breakEvenRoi: '保本 ROI'
+  actualGrossMarginRate: '实际毛利率',
+  breakEvenRoi: '广告口径保本 ROI',
+  collectionBreakEvenRoi: '回款口径保本 ROI'
 };
 
 const FORMULA_KEYS = Object.keys(DEFAULT_PROFIT_CONFIG.formulas);
@@ -62,7 +75,7 @@ export function normalizeProfitConfig(input = {}) {
   };
 
   if (input?.version !== PROFIT_CONFIG_VERSION) {
-    for (const [key, legacyFormula] of Object.entries(LEGACY_PROFIT_FORMULAS)) {
+    for (const [key, legacyFormula] of LEGACY_PROFIT_FORMULAS) {
       if (!input?.formulas?.[key] || input.formulas[key] === legacyFormula) {
         formulas[key] = DEFAULT_PROFIT_CONFIG.formulas[key];
       }
