@@ -48,7 +48,7 @@ const LEGACY_PROFIT_FORMULAS = [
 ];
 
 export const PROFIT_FORMULA_LABELS = {
-  grossGmv: '总GMV',
+  grossGmv: '销售GMV',
   adCost: '广告费',
   settledOrders: '有效成交单量',
   settledGmv: '有效成交GMV',

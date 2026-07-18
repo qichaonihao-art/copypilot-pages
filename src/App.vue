@@ -80,11 +80,8 @@ const profitFormulaEditorKey = ref('');
 const profitFormulaDraft = ref('');
 const profitForm = ref({
   orderCount: 1000,
-  currentSmallPrice: 19.9,
-  currentLargePrice: 29.9,
-  adjustedSmallPrice: 22.9,
-  adjustedLargePrice: 32.9,
-  largeSharePercent: 90,
+  currentGrossGmv: 28900,
+  adjustedGrossGmv: 31900,
   roi: 2.5,
   adjustedRoi: 2.7,
   preShipReturnRatePercent: 10,
@@ -127,8 +124,8 @@ function toggleFaq(index) {
 }
 
 const profitFormulaMeta = [
-  { key: 'grossGmv', label: '总GMV', hint: '下单金额，通常按下单量和客单价计算。' },
-  { key: 'adCost', label: '广告费', hint: '广告费一般等于总GMV / ROI；调整后方案会使用调整后 ROI。' },
+  { key: 'grossGmv', label: '销售GMV', hint: '平台产生的下单成交金额，还没有扣退货、运费险、平台服务费、广告费和货款。' },
+  { key: 'adCost', label: '广告费', hint: '广告费一般等于销售GMV / ROI；调整后方案会使用调整后 ROI。' },
   { key: 'settledOrders', label: '有效成交单量', hint: '扣掉发货前退货和发货后退货后的最终成交单数。' },
   { key: 'settledGmv', label: '有效成交GMV', hint: '扣掉发货前退货和发货后退货后的成交金额。' },
   { key: 'shippedOrders', label: '已发货单量', hint: '扣掉发货前退货后的发货单数，用来计算运费险。' },
@@ -139,8 +136,8 @@ const profitFormulaMeta = [
   { key: 'profit', label: '最终利润', hint: '提现到账金额再扣货款后的最终利润。' },
   { key: 'profitPerOrder', label: '下单单均利润', hint: '总利润 / 总下单量，表示每产生一笔下单平均能赚多少钱。' },
   { key: 'profitPerSettledOrder', label: '按成交数单均利润', hint: '总利润 / 有效成交单量，更适合看最终成交订单利润。' },
-  { key: 'actualGrossMarginRate', label: '实际毛利率', hint: '不含广告费前的利润空间 / 总GMV；广告口径保本 ROI = 1 / 实际毛利率。' },
-  { key: 'breakEvenRoi', label: '广告口径保本 ROI', hint: '和广告后台 ROI 同口径，用总GMV作为基准；广告 ROI 至少达到这个数才保本。' },
+  { key: 'actualGrossMarginRate', label: '实际毛利率', hint: '不含广告费前的利润空间 / 销售GMV；广告口径保本 ROI = 1 / 实际毛利率。' },
+  { key: 'breakEvenRoi', label: '广告口径保本 ROI', hint: '和广告后台 ROI 同口径，用销售GMV作为基准；广告 ROI 至少达到这个数才保本。' },
   { key: 'collectionBreakEvenRoi', label: '回款口径保本 ROI', hint: '用有效成交GMV作为基准，更接近最终回款视角的保本线。' }
 ];
 
@@ -603,8 +600,8 @@ const authButtonText = computed(() => currentUser.value ? currentUser.value.emai
 const isAdmin = computed(() => Boolean(currentUser.value?.isAdmin || currentUser.value?.plan === 'admin'));
 const currentPlanLabel = computed(() => formatPlanName(currentUser.value?.plan));
 const unreadSharedCount = computed(() => sharedVideos.value.filter((item) => item?.id && !viewedSharedIds.value.includes(item.id)).length);
-const profitCurrentPrice = computed(() => calcWeightedPrice(profitForm.value.currentSmallPrice, profitForm.value.currentLargePrice, profitForm.value.largeSharePercent));
-const profitAdjustedPrice = computed(() => calcWeightedPrice(profitForm.value.adjustedSmallPrice, profitForm.value.adjustedLargePrice, profitForm.value.largeSharePercent));
+const profitCurrentPrice = computed(() => calcAveragePriceFromGmv(profitForm.value.currentGrossGmv, profitForm.value.orderCount));
+const profitAdjustedPrice = computed(() => calcAveragePriceFromGmv(profitForm.value.adjustedGrossGmv, profitForm.value.orderCount));
 const profitCurrent = computed(() => runProfitScenario(profitCurrentPrice.value));
 const profitAdjusted = computed(() => runProfitScenario(profitAdjustedPrice.value, profitForm.value.adjustedRoi));
 const currentBreakEvenRoi = computed(() => getProfitValue(profitCurrent.value, 'breakEvenRoi'));
@@ -1598,10 +1595,10 @@ function normalizeDurationSeconds(value) {
   return numeric > 10000 ? numeric / 1000 : numeric;
 }
 
-function calcWeightedPrice(smallPrice, largePrice, largeSharePercent) {
-  const largeShare = clampNumber(Number(largeSharePercent) / 100, 0, 1);
-  const smallShare = 1 - largeShare;
-  return roundMoney(Number(smallPrice || 0) * smallShare + Number(largePrice || 0) * largeShare);
+function calcAveragePriceFromGmv(grossGmv, orders) {
+  const orderCount = Number(orders) || 0;
+  if (orderCount <= 0) return 0;
+  return roundMoney(Number(grossGmv || 0) / orderCount);
 }
 
 function clampNumber(value, min, max) {
@@ -1823,6 +1820,11 @@ function formatProfitMetric(key, value) {
   if (key === 'breakEvenRoi' || key === 'collectionBreakEvenRoi') return formatNumber(value, 2);
   if (String(key || '').includes('Orders')) return `${formatNumber(value, 0)} 单`;
   return formatMoney(value);
+}
+
+function profitFormulaTitle(key) {
+  const meta = profitFormulaMeta.find((item) => item.key === key);
+  return meta?.hint ? `${meta.hint} 双击可编辑公式。` : '双击可编辑公式。';
 }
 
 async function loadProfitConfig() {
@@ -3652,43 +3654,39 @@ onUnmounted(() => {
             </div>
             <div class="profit-form-grid">
               <label>
-                <span>下单量</span>
+                <span title="平台产生的下单笔数，包含后续发货前退货和发货后退货的订单。">下单量</span>
                 <input v-model.number="profitForm.orderCount" type="number" min="0" step="1" />
               </label>
               <label>
-                <span>当前广告 ROI</span>
+                <span title="当前广告后台看到的 ROI，通常等于销售GMV除以广告花费。">当前广告 ROI</span>
                 <input v-model.number="profitForm.roi" type="number" min="0.01" step="0.01" />
               </label>
               <label>
-                <span>调整后广告 ROI</span>
+                <span title="假设优化投放后能达到的广告 ROI，用来测算利润变化。">调整后广告 ROI</span>
                 <input v-model.number="profitForm.adjustedRoi" type="number" min="0.01" step="0.01" />
               </label>
               <label>
-                <span>发货前退货率 (%)</span>
+                <span title="还没发货就取消或退款的订单比例，这部分不产生货款成本和运费险。">发货前退货率 (%)</span>
                 <input v-model.number="profitForm.preShipReturnRatePercent" type="number" min="0" max="99" step="0.1" />
               </label>
               <label>
-                <span>发货后退货率 (%)</span>
+                <span title="发货后又退货的订单比例，这部分会产生运费险，但货款成本按最终成交单计算。">发货后退货率 (%)</span>
                 <input v-model.number="profitForm.postShipReturnRatePercent" type="number" min="0" max="99" step="0.1" />
               </label>
               <label>
-                <span>总退货率 (%)</span>
+                <span title="发货前退货率加发货后退货率，用来计算最终有效成交GMV。">总退货率 (%)</span>
                 <input :value="formatNumber(totalReturnRatePercent, 1)" type="text" readonly />
               </label>
               <label>
-                <span>大号销量占比 (%)</span>
-                <input v-model.number="profitForm.largeSharePercent" type="number" min="0" max="100" step="1" />
-              </label>
-              <label>
-                <span>单均货款成本</span>
+                <span title="最终成交订单平均每单需要支付给工厂的货款。">单均货款成本</span>
                 <input v-model.number="profitForm.productCost" type="number" min="0" step="0.01" />
               </label>
               <label>
-                <span>单均运费险</span>
+                <span title="每个已发货订单需要扣的运费险，发货前退货不扣。">单均运费险</span>
                 <input v-model.number="profitForm.shippingInsurance" type="number" min="0" step="0.01" />
               </label>
               <label>
-                <span>平台服务费 (%)</span>
+                <span title="平台提现或结算时按提现前余额扣走的技术服务费比例。">平台服务费 (%)</span>
                 <input v-model.number="profitForm.platformFeePercent" type="number" min="0" max="100" step="0.1" />
               </label>
             </div>
@@ -3697,26 +3695,18 @@ onUnmounted(() => {
               <article>
                 <strong>当前方案</strong>
                 <label>
-                  <span>小号价格</span>
-                  <input v-model.number="profitForm.currentSmallPrice" type="number" min="0" step="0.01" />
+                  <span title="当前实际销售GMV，也就是平台产生的下单成交金额，未扣退货和各类成本。">当前销售GMV</span>
+                  <input v-model.number="profitForm.currentGrossGmv" type="number" min="0" step="0.01" />
                 </label>
-                <label>
-                  <span>大号价格</span>
-                  <input v-model.number="profitForm.currentLargePrice" type="number" min="0" step="0.01" />
-                </label>
-                <em>均价 {{ formatMoney(profitCurrentPrice) }} · ROI {{ formatNumber(profitForm.roi, 2) }}</em>
+                <em>客单价 {{ formatMoney(profitCurrentPrice) }} · ROI {{ formatNumber(profitForm.roi, 2) }}</em>
               </article>
               <article>
                 <strong>调整后方案</strong>
                 <label>
-                  <span>小号价格</span>
-                  <input v-model.number="profitForm.adjustedSmallPrice" type="number" min="0" step="0.01" />
+                  <span title="调整价格或销量预估后产生的销售GMV，用来反推调整后的客单价。">调整后销售GMV</span>
+                  <input v-model.number="profitForm.adjustedGrossGmv" type="number" min="0" step="0.01" />
                 </label>
-                <label>
-                  <span>大号价格</span>
-                  <input v-model.number="profitForm.adjustedLargePrice" type="number" min="0" step="0.01" />
-                </label>
-                <em>均价 {{ formatMoney(profitAdjustedPrice) }} · ROI {{ formatNumber(profitForm.adjustedRoi, 2) }}</em>
+                <em>客单价 {{ formatMoney(profitAdjustedPrice) }} · ROI {{ formatNumber(profitForm.adjustedRoi, 2) }}</em>
               </article>
             </div>
           </section>
@@ -3730,7 +3720,7 @@ onUnmounted(() => {
             </div>
             <div class="profit-summary-grid">
               <article>
-                <span>均价提升</span>
+                <span>客单价提升</span>
                 <strong>{{ formatMoney(profitDelta.price) }}</strong>
               </article>
               <article>
@@ -3738,23 +3728,23 @@ onUnmounted(() => {
                 <strong>{{ formatNumber(profitDelta.roi, 2) }}</strong>
               </article>
               <article>
-                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润增加</span>
+                <span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润增加</span>
                 <strong>{{ formatMoney(profitDelta.profitPerOrder) }}</strong>
               </article>
               <article>
-                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profit')">总利润增加</span>
+                <span class="formula-label" :title="profitFormulaTitle('profit')" @dblclick="openProfitFormulaEditor('profit')">总利润增加</span>
                 <strong>{{ formatMoney(profitDelta.profit) }}</strong>
               </article>
               <article>
-                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">当前实际毛利率</span>
+                <span class="formula-label" :title="profitFormulaTitle('actualGrossMarginRate')" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">当前实际毛利率</span>
                 <strong>{{ formatPercent(profitCurrent.values.actualGrossMarginRate) }}</strong>
               </article>
               <article>
-                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
+                <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                 <strong>{{ formatNumber(currentBreakEvenRoi, 2) }}</strong>
               </article>
               <article>
-                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span>
+                <span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span>
                 <strong>{{ formatNumber(currentCollectionBreakEvenRoi, 2) }}</strong>
               </article>
             </div>
@@ -3762,53 +3752,53 @@ onUnmounted(() => {
             <div class="profit-compare">
               <article>
                 <h3>当前</h3>
-                <p><span>均价 / ROI</span><strong>{{ formatMoney(profitCurrentPrice) }} / {{ formatNumber(profitForm.roi, 2) }}</strong></p>
+                <p><span>客单价 / ROI</span><strong>{{ formatMoney(profitCurrentPrice) }} / {{ formatNumber(profitForm.roi, 2) }}</strong></p>
                 <p>
-                  <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">实际毛利率</span>
+                  <span class="formula-label" :title="profitFormulaTitle('actualGrossMarginRate')" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">实际毛利率</span>
                   <strong>{{ formatPercent(profitCurrent.values.actualGrossMarginRate) }}</strong>
                 </p>
                 <p>
-                  <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
+                  <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                   <strong>
                     {{ formatNumber(currentBreakEvenRoi, 2) }}
                     <em :class="breakEvenStatus(profitForm.roi, currentBreakEvenRoi).className">{{ breakEvenStatus(profitForm.roi, currentBreakEvenRoi).text }}</em>
                   </strong>
                 </p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(currentCollectionBreakEvenRoi, 2) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('shippedOrders')">已发货单量</span><strong>{{ formatNumber(profitCurrent.values.shippedOrders, 0) }} 单</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('insuranceTotal')">运费险</span><strong>{{ formatMoney(profitCurrent.values.insuranceTotal) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('withdrawBase')">提现前余额</span><strong>{{ formatMoney(profitCurrent.values.withdrawBase) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitCurrent.values.platformFee) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitCurrent.values.productCostTotal) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(currentCollectionBreakEvenRoi, 2) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('profit')" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('settledOrders')" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('adCost')" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('shippedOrders')" @dblclick="openProfitFormulaEditor('shippedOrders')">已发货单量</span><strong>{{ formatNumber(profitCurrent.values.shippedOrders, 0) }} 单</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('insuranceTotal')" @dblclick="openProfitFormulaEditor('insuranceTotal')">运费险</span><strong>{{ formatMoney(profitCurrent.values.insuranceTotal) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('withdrawBase')" @dblclick="openProfitFormulaEditor('withdrawBase')">提现前余额</span><strong>{{ formatMoney(profitCurrent.values.withdrawBase) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('platformFee')" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitCurrent.values.platformFee) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('productCostTotal')" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitCurrent.values.productCostTotal) }}</strong></p>
               </article>
               <article>
                 <h3>调整后</h3>
-                <p><span>均价 / ROI</span><strong>{{ formatMoney(profitAdjustedPrice) }} / {{ formatNumber(profitForm.adjustedRoi, 2) }}</strong></p>
+                <p><span>客单价 / ROI</span><strong>{{ formatMoney(profitAdjustedPrice) }} / {{ formatNumber(profitForm.adjustedRoi, 2) }}</strong></p>
                 <p>
-                  <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">实际毛利率</span>
+                  <span class="formula-label" :title="profitFormulaTitle('actualGrossMarginRate')" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">实际毛利率</span>
                   <strong>{{ formatPercent(profitAdjusted.values.actualGrossMarginRate) }}</strong>
                 </p>
                 <p>
-                  <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
+                  <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                   <strong>
                     {{ formatNumber(adjustedBreakEvenRoi, 2) }}
                     <em :class="breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).className">{{ breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).text }}</em>
                   </strong>
                 </p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(adjustedCollectionBreakEvenRoi, 2) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitAdjusted.values.adCost) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('shippedOrders')">已发货单量</span><strong>{{ formatNumber(profitAdjusted.values.shippedOrders, 0) }} 单</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('insuranceTotal')">运费险</span><strong>{{ formatMoney(profitAdjusted.values.insuranceTotal) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('withdrawBase')">提现前余额</span><strong>{{ formatMoney(profitAdjusted.values.withdrawBase) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitAdjusted.values.platformFee) }}</strong></p>
-                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitAdjusted.values.productCostTotal) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(adjustedCollectionBreakEvenRoi, 2) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('profit')" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('settledOrders')" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('adCost')" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitAdjusted.values.adCost) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('shippedOrders')" @dblclick="openProfitFormulaEditor('shippedOrders')">已发货单量</span><strong>{{ formatNumber(profitAdjusted.values.shippedOrders, 0) }} 单</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('insuranceTotal')" @dblclick="openProfitFormulaEditor('insuranceTotal')">运费险</span><strong>{{ formatMoney(profitAdjusted.values.insuranceTotal) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('withdrawBase')" @dblclick="openProfitFormulaEditor('withdrawBase')">提现前余额</span><strong>{{ formatMoney(profitAdjusted.values.withdrawBase) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('platformFee')" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitAdjusted.values.platformFee) }}</strong></p>
+                <p><span class="formula-label" :title="profitFormulaTitle('productCostTotal')" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitAdjusted.values.productCostTotal) }}</strong></p>
               </article>
             </div>
 
@@ -3819,7 +3809,7 @@ onUnmounted(() => {
                 <span>调整后</span>
               </div>
               <div v-for="meta in profitFormulaMeta" :key="meta.key">
-                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor(meta.key)">{{ meta.label }}</span>
+                <span class="formula-label" :title="profitFormulaTitle(meta.key)" @dblclick="openProfitFormulaEditor(meta.key)">{{ meta.label }}</span>
                 <span>{{ formatProfitMetric(meta.key, profitCurrent.values[meta.key]) }}</span>
                 <span>{{ formatProfitMetric(meta.key, profitAdjusted.values[meta.key]) }}</span>
               </div>
