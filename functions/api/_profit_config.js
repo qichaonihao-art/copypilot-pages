@@ -1,5 +1,5 @@
 export const PROFIT_CONFIG_KEY = 'PROFIT_CALCULATOR_CONFIG';
-export const PROFIT_CONFIG_VERSION = '2026-07-18-roi-dual-v4';
+export const PROFIT_CONFIG_VERSION = '2026-07-18-roi-core-v5';
 
 export const PROFIT_VARIABLES = [
   'orders',
@@ -47,6 +47,21 @@ const LEGACY_PROFIT_FORMULAS = [
   ['breakEvenRoi', 'grossGmv / (settledGmv - insuranceTotal - productCostTotal / (1 - serviceRate))']
 ];
 
+const CORE_PROFIT_FORMULA_KEYS = [
+  'adCost',
+  'settledOrders',
+  'settledGmv',
+  'shippedOrders',
+  'productCostTotal',
+  'insuranceTotal',
+  'withdrawBase',
+  'platformFee',
+  'profit',
+  'actualGrossMarginRate',
+  'breakEvenRoi',
+  'collectionBreakEvenRoi'
+];
+
 export const PROFIT_FORMULA_LABELS = {
   grossGmv: '销售GMV',
   adCost: '广告费',
@@ -75,6 +90,9 @@ export function normalizeProfitConfig(input = {}) {
   };
 
   if (input?.version !== PROFIT_CONFIG_VERSION) {
+    for (const key of CORE_PROFIT_FORMULA_KEYS) {
+      formulas[key] = DEFAULT_PROFIT_CONFIG.formulas[key];
+    }
     for (const [key, legacyFormula] of LEGACY_PROFIT_FORMULAS) {
       if (!input?.formulas?.[key] || input.formulas[key] === legacyFormula) {
         formulas[key] = DEFAULT_PROFIT_CONFIG.formulas[key];

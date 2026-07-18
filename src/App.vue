@@ -107,7 +107,7 @@ const adminMessage = ref('');
 const devCode = ref('');
 const isPublicFreeMode = !['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 const openFaqIndex = ref(0);
-const PROFIT_CONFIG_VERSION = '2026-07-18-roi-dual-v4';
+const PROFIT_CONFIG_VERSION = '2026-07-18-roi-core-v5';
 let transcriptCopyTimer = null;
 
 function toggleFaq(index) {
@@ -1927,7 +1927,24 @@ function normalizeProfitConfig(config = {}) {
     ['breakEvenRoi', 'grossGmv / (settledGmv - platformFee - productCostTotal - insuranceTotal)'],
     ['breakEvenRoi', 'grossGmv / (settledGmv - insuranceTotal - productCostTotal / (1 - serviceRate))']
   ];
+  const coreFormulaKeys = [
+    'adCost',
+    'settledOrders',
+    'settledGmv',
+    'shippedOrders',
+    'productCostTotal',
+    'insuranceTotal',
+    'withdrawBase',
+    'platformFee',
+    'profit',
+    'actualGrossMarginRate',
+    'breakEvenRoi',
+    'collectionBreakEvenRoi'
+  ];
   if (config.version !== PROFIT_CONFIG_VERSION) {
+    for (const key of coreFormulaKeys) {
+      formulas[key] = defaults.formulas[key];
+    }
     for (const [key, legacyFormula] of legacyFormulas) {
       if (!config.formulas?.[key] || config.formulas[key] === legacyFormula) {
         formulas[key] = defaults.formulas[key];
