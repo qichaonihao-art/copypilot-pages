@@ -144,6 +144,45 @@ const profitVariableLabels = [
   ['serviceRate', '平台服务费比例，小数']
 ];
 
+function emptyProfitForm() {
+  return {
+    orderCount: '',
+    currentGrossGmv: '',
+    adjustedGrossGmv: '',
+    roi: '',
+    adjustedRoi: '',
+    preShipReturnRatePercent: '',
+    postShipReturnRatePercent: '',
+    productCost: '',
+    shippingInsurance: '',
+    platformFeePercent: ''
+  };
+}
+
+function loadProfitForm() {
+  const defaults = emptyProfitForm();
+  try {
+    const raw = localStorage.getItem(PROFIT_FORM_STORAGE_KEY);
+    if (!raw) return defaults;
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== 'object') return defaults;
+    return {
+      ...defaults,
+      ...Object.fromEntries(Object.keys(defaults).map((key) => [key, saved[key] ?? '']))
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveProfitForm() {
+  try {
+    localStorage.setItem(PROFIT_FORM_STORAGE_KEY, JSON.stringify(profitForm.value));
+  } catch {
+    // Browser storage may be unavailable in private mode; calculation still works.
+  }
+}
+
 function defaultProfitConfig() {
   return {
     version: PROFIT_CONFIG_VERSION,
@@ -604,6 +643,14 @@ const totalReturnRatePercent = computed(() => {
   const preShip = Number(profitForm.value.preShipReturnRatePercent) || 0;
   const postShip = Number(profitForm.value.postShipReturnRatePercent) || 0;
   return clampNumber(preShip + postShip, 0, 99.999);
+});
+const totalReturnRateDisplay = computed(() => {
+  const preShipRaw = profitForm.value.preShipReturnRatePercent;
+  const postShipRaw = profitForm.value.postShipReturnRatePercent;
+  if ((preShipRaw === '' || preShipRaw === null || preShipRaw === undefined) && (postShipRaw === '' || postShipRaw === null || postShipRaw === undefined)) {
+    return '';
+  }
+  return formatNumber(totalReturnRatePercent.value, 1);
 });
 const profitDelta = computed(() => ({
   price: profitAdjustedPrice.value - profitCurrentPrice.value,
@@ -3258,6 +3305,8 @@ watch(
   }
 );
 
+watch(profitForm, saveProfitForm, { deep: true });
+
 const showBackToTop = ref(false);
 
 function onScroll() {
@@ -3702,7 +3751,7 @@ onUnmounted(() => {
               </label>
               <label>
                 <span title="发货前退货率加发货后退货率，用来计算最终有效成交GMV。">总退货率 (%)</span>
-                <input :value="formatNumber(totalReturnRatePercent, 1)" type="text" readonly />
+                <input :value="totalReturnRateDisplay" type="text" readonly />
               </label>
               <label>
                 <span title="最终成交订单平均每单需要支付给工厂的货款。">单均货款成本</span>
