@@ -31,6 +31,7 @@ import { seoPageByPath } from './seo-pages.js';
 const siteName = 'CopyPilot';
 const FREE_TRANSCRIBE_MAX_SECONDS = 5 * 60;
 const SHARED_VIEWED_KEY = 'copypilot-shared-viewed-v1';
+const PROFIT_FORM_STORAGE_KEY = 'copypilot-profit-form-v1';
 const initialPath = window.location.pathname;
 const currentPath = ref(initialPath);
 const lang = ref(initialPath.startsWith('/en/') ? 'en' : localStorage.getItem('copypilot-lang') || 'zh');
@@ -78,18 +79,8 @@ const profitStorageConfigured = ref(true);
 const profitFormulaEditorOpen = ref(false);
 const profitFormulaEditorKey = ref('');
 const profitFormulaDraft = ref('');
-const profitForm = ref({
-  orderCount: 1000,
-  currentGrossGmv: 28900,
-  adjustedGrossGmv: 31900,
-  roi: 2.5,
-  adjustedRoi: 2.7,
-  preShipReturnRatePercent: 10,
-  postShipReturnRatePercent: 5,
-  productCost: 9,
-  shippingInsurance: 0.5,
-  platformFeePercent: 10
-});
+const profitForm = ref(loadProfitForm());
+let previousProfitOrderCount = Number(profitForm.value.orderCount) || 0;
 const profitConfig = ref(defaultProfitConfig());
 const selectedFile = ref(null);
 const loading = ref(false);
@@ -621,6 +612,19 @@ const profitDelta = computed(() => ({
   profitPerOrder: getProfitValue(profitAdjusted.value, 'profitPerOrder') - getProfitValue(profitCurrent.value, 'profitPerOrder'),
   profitPerSettledOrder: getProfitValue(profitAdjusted.value, 'profitPerSettledOrder') - getProfitValue(profitCurrent.value, 'profitPerSettledOrder')
 }));
+const profitInputWarnings = computed(() => {
+  const warnings = [];
+  const cost = Number(profitForm.value.productCost) || 0;
+  const currentPrice = profitCurrentPrice.value;
+  const adjustedPrice = profitAdjustedPrice.value;
+  if (currentPrice > 0 && cost > 0 && currentPrice < cost) {
+    warnings.push(`当前客单价 ${formatMoney(currentPrice)} 低于单均货款成本 ${formatMoney(cost)}，请检查“当前销售GMV”和“下单量”是否同一口径。`);
+  }
+  if (adjustedPrice > 0 && cost > 0 && adjustedPrice < cost) {
+    warnings.push(`调整后客单价 ${formatMoney(adjustedPrice)} 低于单均货款成本 ${formatMoney(cost)}，请检查“调整后销售GMV”和“下单量”是否同一口径。`);
+  }
+  return warnings;
+});
 
 function seoToolPage(path) {
   const page = seoPageByPath[path];
@@ -1599,6 +1603,17 @@ function calcAveragePriceFromGmv(grossGmv, orders) {
   const orderCount = Number(orders) || 0;
   if (orderCount <= 0) return 0;
   return roundMoney(Number(grossGmv || 0) / orderCount);
+}
+
+function syncProfitGmvForOrderCount(newOrderCount, oldOrderCount) {
+  const nextOrders = Number(newOrderCount) || 0;
+  const previousOrders = Number(oldOrderCount) || 0;
+  if (nextOrders <= 0 || previousOrders <= 0 || nextOrders === previousOrders) return;
+
+  const currentPrice = Number(profitForm.value.currentGrossGmv || 0) / previousOrders;
+  const adjustedPrice = Number(profitForm.value.adjustedGrossGmv || 0) / previousOrders;
+  profitForm.value.currentGrossGmv = roundMoney(currentPrice * nextOrders);
+  profitForm.value.adjustedGrossGmv = roundMoney(adjustedPrice * nextOrders);
 }
 
 function clampNumber(value, min, max) {
@@ -3234,6 +3249,15 @@ watch(hasResultContent, async (val, oldVal) => {
   }
 });
 
+watch(
+  () => profitForm.value.orderCount,
+  (newOrderCount) => {
+    syncProfitGmvForOrderCount(newOrderCount, previousProfitOrderCount);
+    const nextOrders = Number(newOrderCount) || 0;
+    if (nextOrders > 0) previousProfitOrderCount = nextOrders;
+  }
+);
+
 const showBackToTop = ref(false);
 
 function onScroll() {
@@ -3643,6 +3667,9 @@ onUnmounted(() => {
         </div>
 
         <p v-if="profitMessage" class="alert" :class="profitMessageType">{{ profitMessage }}</p>
+        <div v-if="profitInputWarnings.length" class="profit-warning-list">
+          <p v-for="warning in profitInputWarnings" :key="warning">{{ warning }}</p>
+        </div>
 
         <div class="profit-layout">
           <section class="profit-panel">
