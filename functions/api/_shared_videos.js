@@ -311,3 +311,32 @@ export async function updateSharedVideoTranscript(env, id, input) {
   await writeSharedIndex(kv, index.map((item) => item.id === record.id ? toShareSummary(record) : item));
   return record;
 }
+
+export async function updateSharedVideoResult(env, id, input) {
+  const kv = getSharedKv(env);
+  if (!kv) throw makeSharedError('CONFIG_KV_MISSING', 'CONFIG_KV 未绑定，无法更新共享视频。', 500);
+  const record = await getSharedVideo(env, id);
+  if (!input?.result || typeof input.result !== 'object') {
+    throw makeSharedError('RESULT_MISSING', '缺少重新解析后的视频结果。', 400);
+  }
+
+  const now = new Date().toISOString();
+  record.result = {
+    ...(record.result || {}),
+    ...input.result,
+    ...(record.result?.transcript ? { transcript: record.result.transcript, text: record.result.text || record.result.transcript } : {})
+  };
+  record.title = buildSharedTitle(record);
+  record.cover = record.cover || pickSharedCover(record.result);
+  record.updatedAt = now;
+
+  const payload = JSON.stringify(record);
+  if (payload.length > MAX_RECORD_BYTES) {
+    throw makeSharedError('SHARED_VIDEO_TOO_LARGE', '共享内容过大，暂时无法更新。', 413);
+  }
+
+  await kv.put(sharedVideoKey(record.id), payload);
+  const index = await readSharedIndex(kv);
+  await writeSharedIndex(kv, index.map((item) => item.id === record.id ? toShareSummary(record) : item));
+  return record;
+}

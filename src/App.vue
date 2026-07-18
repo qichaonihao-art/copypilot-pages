@@ -72,6 +72,8 @@ const shareLoading = ref(false);
 const shareNameOpen = ref(false);
 const shareNameDraft = ref('');
 const currentSharedRecord = ref(null);
+const sharedVideoRefreshing = ref(false);
+const sharedVideoRefreshTried = ref(false);
 const viewedSharedIds = ref(loadViewedSharedIds());
 const profitLoading = ref(false);
 const profitConfigOpen = ref(false);
@@ -2875,6 +2877,7 @@ async function loadSharedVideo(id) {
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.message || '共享视频读取失败。');
     currentSharedRecord.value = payload.record;
+    sharedVideoRefreshTried.value = false;
     result.value = payload.record?.result || {};
     url.value = payload.record?.sourceUrl || '';
     markSharedVideoViewed(payload.record?.id || id);
@@ -2889,6 +2892,57 @@ async function loadSharedVideo(id) {
   } finally {
     sharedLoading.value = false;
   }
+}
+
+async function refreshSharedVideo() {
+  if (!isShareDetailPage.value || !sharedVideoId.value || !currentSharedRecord.value?.sourceUrl || sharedVideoRefreshing.value) return false;
+  sharedVideoRefreshing.value = true;
+  sharedMessage.value = '视频地址已失效，正在重新解析...';
+  try {
+    const sourceUrl = currentSharedRecord.value.sourceUrl;
+    const platform = currentSharedRecord.value.platform || detectPlatformFromUrl(sourceUrl);
+    const endpoint = platform === 'wechat_channels' ? '/api/wechat-channel-extract' : '/api/extract';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: sourceUrl, type: 'auto' })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok || !payload.data) throw new Error(formatWechatExtractError(payload) || payload.message || '视频重新解析失败。');
+
+    const refreshedResult = {
+      ...(currentSharedRecord.value.result || {}),
+      ...payload.data,
+      ...(currentSharedRecord.value.result?.transcript ? {
+        transcript: currentSharedRecord.value.result.transcript,
+        text: currentSharedRecord.value.result.text || currentSharedRecord.value.result.transcript
+      } : {})
+    };
+    const saveResponse = await fetch(`/api/shared-videos/${encodeURIComponent(sharedVideoId.value)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'refresh', result: refreshedResult })
+    });
+    const savedPayload = await saveResponse.json();
+    if (!saveResponse.ok || !savedPayload.ok) throw new Error(savedPayload.message || '新视频地址保存失败。');
+    currentSharedRecord.value = savedPayload.record;
+    result.value = savedPayload.record?.result || refreshedResult;
+    sharedMessage.value = '视频地址已刷新，可以重新播放。';
+    await nextTick();
+    updateMeta();
+    return true;
+  } catch (err) {
+    sharedMessage.value = err.message || '视频重新解析失败，请稍后重试。';
+    return false;
+  } finally {
+    sharedVideoRefreshing.value = false;
+  }
+}
+
+async function handleSharedVideoError() {
+  if (!isShareDetailPage.value || sharedVideoRefreshTried.value || sharedVideoRefreshing.value) return;
+  sharedVideoRefreshTried.value = true;
+  await refreshSharedVideo();
 }
 
 async function updateSharedTranscript(text) {
@@ -4429,7 +4483,7 @@ onUnmounted(() => {
             <article v-if="shouldShowVideoResult" class="result-block video-preview-block">
               <span>视频提取 / 去水印</span>
               <div v-if="videoLinks.length" class="video-result">
-                <video :src="previewVideoUrl" controls playsinline preload="metadata"></video>
+                <video :key="previewVideoUrl" :src="previewVideoUrl" controls playsinline preload="metadata" @error="handleSharedVideoError"></video>
                 <div class="video-actions">
                   <a :href="previewVideoUrl" download="video.mp4">下载视频</a>
                   <button class="video-transcript-action" :disabled="videoTranscriptLoading" @click="transcribeExtractedVideo('precise')">

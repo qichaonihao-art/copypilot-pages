@@ -4,6 +4,7 @@ import {
   getSharedVideo,
   sharedErrorResponse,
   toShareSummary,
+  updateSharedVideoResult,
   updateSharedVideoTranscript
 } from '../_shared_videos.js';
 
@@ -25,7 +26,9 @@ export async function onRequestPatch(context) {
   }
 
   try {
-    const record = await updateSharedVideoTranscript(context.env, context.params.id, body || {});
+    const record = body?.action === 'refresh'
+      ? await updateSharedVideoResult(context.env, context.params.id, body || {})
+      : await updateSharedVideoTranscript(context.env, context.params.id, body || {});
     return json({ ok: true, item: toShareSummary(record), record });
   } catch (error) {
     return sharedErrorResponse(error, json);
