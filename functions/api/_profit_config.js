@@ -1,4 +1,5 @@
 export const PROFIT_CONFIG_KEY = 'PROFIT_CALCULATOR_CONFIG';
+export const PROFIT_CONFIG_VERSION = '2026-07-18-cashflow-v2';
 
 export const PROFIT_VARIABLES = [
   'orders',
@@ -16,14 +17,24 @@ export const DEFAULT_PROFIT_CONFIG = {
     adCost: 'grossGmv / roi',
     settledOrders: 'orders * (1 - returnRate)',
     settledGmv: 'settledOrders * price',
-    platformFee: 'settledGmv * serviceRate',
     productCostTotal: 'settledOrders * cost',
-    insuranceTotal: 'settledOrders * insurance',
-    profit: 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal',
+    insuranceTotal: 'orders * insurance',
+    withdrawBase: 'settledGmv - adCost - insuranceTotal',
+    platformFee: 'withdrawBase * serviceRate',
+    profit: 'withdrawBase - platformFee - productCostTotal',
     profitPerOrder: 'profit / orders',
-    profitPerSettledOrder: 'profit / settledOrders'
+    profitPerSettledOrder: 'profit / settledOrders',
+    breakEvenRoi: 'grossGmv / (settledGmv - insuranceTotal - productCostTotal / (1 - serviceRate))'
   },
+  version: PROFIT_CONFIG_VERSION,
   updatedAt: null
+};
+
+const LEGACY_PROFIT_FORMULAS = {
+  insuranceTotal: 'settledOrders * insurance',
+  platformFee: 'settledGmv * serviceRate',
+  profit: 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal',
+  breakEvenRoi: 'grossGmv / (settledGmv - platformFee - productCostTotal - insuranceTotal)'
 };
 
 export const PROFIT_FORMULA_LABELS = {
@@ -31,12 +42,14 @@ export const PROFIT_FORMULA_LABELS = {
   adCost: '广告费',
   settledOrders: '有效成交单量',
   settledGmv: '有效成交GMV',
-  platformFee: '平台技术服务费',
   productCostTotal: '货款成本',
   insuranceTotal: '运费险',
+  withdrawBase: '提现前余额',
+  platformFee: '平台技术服务费',
   profit: '最终利润',
-  profitPerOrder: '按下单数单均利润',
-  profitPerSettledOrder: '按成交数单均利润'
+  profitPerOrder: '下单单均利润',
+  profitPerSettledOrder: '按成交数单均利润',
+  breakEvenRoi: '保本 ROI'
 };
 
 const FORMULA_KEYS = Object.keys(DEFAULT_PROFIT_CONFIG.formulas);
@@ -47,8 +60,18 @@ export function normalizeProfitConfig(input = {}) {
     ...DEFAULT_PROFIT_CONFIG.formulas,
     ...(input?.formulas || {})
   };
+
+  if (input?.version !== PROFIT_CONFIG_VERSION) {
+    for (const [key, legacyFormula] of Object.entries(LEGACY_PROFIT_FORMULAS)) {
+      if (!input?.formulas?.[key] || input.formulas[key] === legacyFormula) {
+        formulas[key] = DEFAULT_PROFIT_CONFIG.formulas[key];
+      }
+    }
+  }
+
   return {
     formulas: Object.fromEntries(FORMULA_KEYS.map((key) => [key, String(formulas[key] || '').trim()])),
+    version: PROFIT_CONFIG_VERSION,
     updatedAt: input?.updatedAt || null
   };
 }

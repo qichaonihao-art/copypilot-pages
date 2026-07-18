@@ -75,6 +75,9 @@ const profitConfigOpen = ref(false);
 const profitMessage = ref('');
 const profitMessageType = ref('success');
 const profitStorageConfigured = ref(true);
+const profitFormulaEditorOpen = ref(false);
+const profitFormulaEditorKey = ref('');
+const profitFormulaDraft = ref('');
 const profitForm = ref({
   orderCount: 1000,
   currentSmallPrice: 19.9,
@@ -115,6 +118,7 @@ const adminMessage = ref('');
 const devCode = ref('');
 const isPublicFreeMode = !['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 const openFaqIndex = ref(0);
+const PROFIT_CONFIG_VERSION = '2026-07-18-cashflow-v2';
 let transcriptCopyTimer = null;
 
 function toggleFaq(index) {
@@ -126,12 +130,14 @@ const profitFormulaMeta = [
   { key: 'adCost', label: '广告费', hint: '广告费一般等于总GMV / ROI；调整后方案会使用调整后 ROI。' },
   { key: 'settledOrders', label: '有效成交单量', hint: '扣掉退货后的最终成交单数。' },
   { key: 'settledGmv', label: '有效成交GMV', hint: '最终能提现、结算的成交金额。' },
-  { key: 'platformFee', label: '平台技术服务费', hint: '默认按退款后的有效成交GMV扣。' },
   { key: 'productCostTotal', label: '货款成本', hint: '默认只按最终成交单支付货款。' },
-  { key: 'insuranceTotal', label: '运费险', hint: '默认只按最终成交单扣运费险。' },
-  { key: 'profit', label: '最终利润', hint: '扣完广告费、平台费、货款、运费险后的利润。' },
-  { key: 'profitPerOrder', label: '按下单数单均利润', hint: '总利润 / 总下单量，更适合看投流进来的每单价值。' },
-  { key: 'profitPerSettledOrder', label: '按成交数单均利润', hint: '总利润 / 有效成交单量，更适合看最终成交订单利润。' }
+  { key: 'insuranceTotal', label: '运费险', hint: '默认按下单量扣，退货订单也会产生运费险。' },
+  { key: 'withdrawBase', label: '提现前余额', hint: '退款后GMV扣掉广告费和运费险后，进入平台扣点前的余额。' },
+  { key: 'platformFee', label: '平台技术服务费', hint: '按扣完退货、广告费和运费险后的提现前余额计算。' },
+  { key: 'profit', label: '最终利润', hint: '提现到账金额再扣货款后的最终利润。' },
+  { key: 'profitPerOrder', label: '下单单均利润', hint: '总利润 / 总下单量，表示每产生一笔下单平均能赚多少钱。' },
+  { key: 'profitPerSettledOrder', label: '按成交数单均利润', hint: '总利润 / 有效成交单量，更适合看最终成交订单利润。' },
+  { key: 'breakEvenRoi', label: '保本 ROI', hint: '广告 ROI 至少达到这个数，最终利润才不会低于 0。' }
 ];
 
 const profitVariableLabels = [
@@ -146,18 +152,21 @@ const profitVariableLabels = [
 
 function defaultProfitConfig() {
   return {
+    version: PROFIT_CONFIG_VERSION,
     updatedAt: null,
     formulas: {
       grossGmv: 'orders * price',
       adCost: 'grossGmv / roi',
       settledOrders: 'orders * (1 - returnRate)',
       settledGmv: 'settledOrders * price',
-      platformFee: 'settledGmv * serviceRate',
       productCostTotal: 'settledOrders * cost',
-      insuranceTotal: 'settledOrders * insurance',
-      profit: 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal',
+      insuranceTotal: 'orders * insurance',
+      withdrawBase: 'settledGmv - adCost - insuranceTotal',
+      platformFee: 'withdrawBase * serviceRate',
+      profit: 'withdrawBase - platformFee - productCostTotal',
       profitPerOrder: 'profit / orders',
-      profitPerSettledOrder: 'profit / settledOrders'
+      profitPerSettledOrder: 'profit / settledOrders',
+      breakEvenRoi: 'grossGmv / (settledGmv - insuranceTotal - productCostTotal / (1 - serviceRate))'
     }
   };
 }
@@ -589,8 +598,9 @@ const profitCurrentPrice = computed(() => calcWeightedPrice(profitForm.value.cur
 const profitAdjustedPrice = computed(() => calcWeightedPrice(profitForm.value.adjustedSmallPrice, profitForm.value.adjustedLargePrice, profitForm.value.largeSharePercent));
 const profitCurrent = computed(() => runProfitScenario(profitCurrentPrice.value));
 const profitAdjusted = computed(() => runProfitScenario(profitAdjustedPrice.value, profitForm.value.adjustedRoi));
-const currentBreakEvenRoi = computed(() => calculateBreakEvenRoi(profitCurrent.value));
-const adjustedBreakEvenRoi = computed(() => calculateBreakEvenRoi(profitAdjusted.value));
+const currentBreakEvenRoi = computed(() => getProfitValue(profitCurrent.value, 'breakEvenRoi'));
+const adjustedBreakEvenRoi = computed(() => getProfitValue(profitAdjusted.value, 'breakEvenRoi'));
+const activeProfitFormulaMeta = computed(() => profitFormulaMeta.find((item) => item.key === profitFormulaEditorKey.value) || null);
 const profitDelta = computed(() => ({
   price: profitAdjustedPrice.value - profitCurrentPrice.value,
   roi: (Number(profitForm.value.adjustedRoi) || 0) - (Number(profitForm.value.roi) || 0),
@@ -1592,24 +1602,50 @@ function getProfitValue(resultValue, key) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function calculateBreakEvenRoi(resultValue) {
-  const values = resultValue?.values || {};
-  const grossGmv = Number(values.grossGmv) || 0;
-  const nonAdProfitRoom =
-    (Number(values.settledGmv) || 0)
-    - (Number(values.platformFee) || 0)
-    - (Number(values.productCostTotal) || 0)
-    - (Number(values.insuranceTotal) || 0);
-  if (grossGmv <= 0 || nonAdProfitRoom <= 0) return 0;
-  return grossGmv / nonAdProfitRoom;
-}
-
 function breakEvenStatus(actualRoi, breakEvenRoi) {
   const actual = Number(actualRoi) || 0;
   const target = Number(breakEvenRoi) || 0;
   if (target <= 0) return { className: 'danger', text: '无法保本' };
   if (actual >= target) return { className: 'success', text: `高于保本线 ${formatNumber(actual - target, 2)}` };
   return { className: 'danger', text: `低于保本线 ${formatNumber(target - actual, 2)}` };
+}
+
+function openProfitFormulaEditor(key) {
+  const meta = profitFormulaMeta.find((item) => item.key === key);
+  if (!meta) return;
+  profitFormulaEditorKey.value = key;
+  profitFormulaDraft.value = profitConfig.value.formulas?.[key] || defaultProfitConfig().formulas[key] || '';
+  profitMessage.value = '';
+  profitFormulaEditorOpen.value = true;
+}
+
+function closeProfitFormulaEditor() {
+  profitFormulaEditorOpen.value = false;
+  profitFormulaEditorKey.value = '';
+  profitFormulaDraft.value = '';
+}
+
+async function saveProfitFormulaEditor() {
+  if (!profitFormulaEditorKey.value) return;
+  const previousConfig = normalizeProfitConfig(profitConfig.value);
+  profitConfig.value = normalizeProfitConfig({
+    ...profitConfig.value,
+    formulas: {
+      ...profitConfig.value.formulas,
+      [profitFormulaEditorKey.value]: profitFormulaDraft.value
+    }
+  });
+  await saveProfitConfig();
+  if (profitMessageType.value === 'error') {
+    profitConfig.value = previousConfig;
+    return;
+  }
+  closeProfitFormulaEditor();
+}
+
+function resetProfitFormulaEditor() {
+  if (!profitFormulaEditorKey.value) return;
+  profitFormulaDraft.value = defaultProfitConfig().formulas[profitFormulaEditorKey.value] || '';
 }
 
 function runProfitScenario(price, roiOverride = profitForm.value.roi) {
@@ -1761,6 +1797,12 @@ function formatPercent(value) {
   return `${((Number(value) || 0) * 100).toFixed(1)}%`;
 }
 
+function formatProfitMetric(key, value) {
+  if (key === 'breakEvenRoi') return formatNumber(value, 2);
+  if (String(key || '').includes('Orders')) return `${formatNumber(value, 0)} 单`;
+  return formatMoney(value);
+}
+
 async function loadProfitConfig() {
   profitLoading.value = true;
   profitMessage.value = '';
@@ -1784,12 +1826,27 @@ async function loadProfitConfig() {
 
 function normalizeProfitConfig(config = {}) {
   const defaults = defaultProfitConfig();
-  return {
-    updatedAt: config.updatedAt || null,
-    formulas: {
-      ...defaults.formulas,
-      ...(config.formulas || {})
+  const formulas = {
+    ...defaults.formulas,
+    ...(config.formulas || {})
+  };
+  const legacyFormulas = {
+    insuranceTotal: 'settledOrders * insurance',
+    platformFee: 'settledGmv * serviceRate',
+    profit: 'settledGmv - adCost - platformFee - productCostTotal - insuranceTotal',
+    breakEvenRoi: 'grossGmv / (settledGmv - platformFee - productCostTotal - insuranceTotal)'
+  };
+  if (config.version !== PROFIT_CONFIG_VERSION) {
+    for (const [key, legacyFormula] of Object.entries(legacyFormulas)) {
+      if (!config.formulas?.[key] || config.formulas[key] === legacyFormula) {
+        formulas[key] = defaults.formulas[key];
+      }
     }
+  }
+  return {
+    version: PROFIT_CONFIG_VERSION,
+    updatedAt: config.updatedAt || null,
+    formulas
   };
 }
 
@@ -3646,15 +3703,15 @@ onUnmounted(() => {
                 <strong>{{ formatNumber(profitDelta.roi, 2) }}</strong>
               </article>
               <article>
-                <span>单均利润增加</span>
+                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润增加</span>
                 <strong>{{ formatMoney(profitDelta.profitPerOrder) }}</strong>
               </article>
               <article>
-                <span>总利润增加</span>
+                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profit')">总利润增加</span>
                 <strong>{{ formatMoney(profitDelta.profit) }}</strong>
               </article>
               <article>
-                <span>当前保本 ROI</span>
+                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('breakEvenRoi')">当前保本 ROI</span>
                 <strong>{{ formatNumber(currentBreakEvenRoi, 2) }}</strong>
               </article>
             </div>
@@ -3664,31 +3721,37 @@ onUnmounted(() => {
                 <h3>当前</h3>
                 <p><span>均价 / ROI</span><strong>{{ formatMoney(profitCurrentPrice) }} / {{ formatNumber(profitForm.roi, 2) }}</strong></p>
                 <p>
-                  <span>保本 ROI</span>
+                  <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('breakEvenRoi')">保本 ROI</span>
                   <strong>
                     {{ formatNumber(currentBreakEvenRoi, 2) }}
                     <em :class="breakEvenStatus(profitForm.roi, currentBreakEvenRoi).className">{{ breakEvenStatus(profitForm.roi, currentBreakEvenRoi).text }}</em>
                   </strong>
                 </p>
-                <p><span>总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
-                <p><span>按下单数单均</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
-                <p><span>有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
-                <p><span>广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('withdrawBase')">提现前余额</span><strong>{{ formatMoney(profitCurrent.values.withdrawBase) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitCurrent.values.platformFee) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitCurrent.values.productCostTotal) }}</strong></p>
               </article>
               <article>
                 <h3>调整后</h3>
                 <p><span>均价 / ROI</span><strong>{{ formatMoney(profitAdjustedPrice) }} / {{ formatNumber(profitForm.adjustedRoi, 2) }}</strong></p>
                 <p>
-                  <span>保本 ROI</span>
+                  <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('breakEvenRoi')">保本 ROI</span>
                   <strong>
                     {{ formatNumber(adjustedBreakEvenRoi, 2) }}
                     <em :class="breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).className">{{ breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).text }}</em>
                   </strong>
                 </p>
-                <p><span>总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
-                <p><span>按下单数单均</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
-                <p><span>有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
-                <p><span>广告费</span><strong>{{ formatMoney(profitAdjusted.values.adCost) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitAdjusted.values.adCost) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('withdrawBase')">提现前余额</span><strong>{{ formatMoney(profitAdjusted.values.withdrawBase) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitAdjusted.values.platformFee) }}</strong></p>
+                <p><span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitAdjusted.values.productCostTotal) }}</strong></p>
               </article>
             </div>
 
@@ -3699,9 +3762,9 @@ onUnmounted(() => {
                 <span>调整后</span>
               </div>
               <div v-for="meta in profitFormulaMeta" :key="meta.key">
-                <span>{{ meta.label }}</span>
-                <span>{{ meta.key.includes('Orders') ? `${formatNumber(profitCurrent.values[meta.key], 0)} 单` : formatMoney(profitCurrent.values[meta.key]) }}</span>
-                <span>{{ meta.key.includes('Orders') ? `${formatNumber(profitAdjusted.values[meta.key], 0)} 单` : formatMoney(profitAdjusted.values[meta.key]) }}</span>
+                <span class="formula-label" title="双击编辑公式" @dblclick="openProfitFormulaEditor(meta.key)">{{ meta.label }}</span>
+                <span>{{ formatProfitMetric(meta.key, profitCurrent.values[meta.key]) }}</span>
+                <span>{{ formatProfitMetric(meta.key, profitAdjusted.values[meta.key]) }}</span>
               </div>
             </div>
           </section>
@@ -4257,6 +4320,56 @@ onUnmounted(() => {
         </div>
       </section>
     </main>
+
+    <div v-if="profitFormulaEditorOpen" class="modal-backdrop" @click.self="closeProfitFormulaEditor">
+      <section class="profit-formula-modal" role="dialog" aria-modal="true" aria-label="编辑计算公式">
+        <div class="transcript-history-head">
+          <div>
+            <strong>{{ activeProfitFormulaMeta?.label || '计算公式' }}</strong>
+            <span>双击指标可随时查看和修改对应公式</span>
+          </div>
+          <button type="button" class="modal-close-button" @click="closeProfitFormulaEditor">关闭</button>
+        </div>
+
+        <p v-if="activeProfitFormulaMeta?.hint" class="profit-formula-hint">{{ activeProfitFormulaMeta.hint }}</p>
+
+        <label class="profit-formula-editor">
+          <span>当前公式</span>
+          <textarea v-model="profitFormulaDraft" rows="4" spellcheck="false"></textarea>
+        </label>
+
+        <div class="profit-formula-preview">
+          <span>当前方案结果</span>
+          <strong>
+            {{ formatProfitMetric(profitFormulaEditorKey, profitCurrent.values[profitFormulaEditorKey]) }}
+          </strong>
+          <span>调整后结果</span>
+          <strong>
+            {{ formatProfitMetric(profitFormulaEditorKey, profitAdjusted.values[profitFormulaEditorKey]) }}
+          </strong>
+        </div>
+
+        <p class="profit-config-note">
+          可用变量：
+          <em v-for="([name, label]) in profitVariableLabels" :key="name">{{ name }}={{ label }}</em>
+          <em v-for="meta in profitFormulaMeta" :key="`formula-${meta.key}`">{{ meta.key }}={{ meta.label }}</em>
+        </p>
+
+        <p v-if="profitMessage && profitMessageType === 'error'" class="alert error">{{ profitMessage }}</p>
+
+        <div class="button-row profit-config-actions">
+          <button class="primary-button" type="button" :disabled="profitLoading || !profitStorageConfigured" @click="saveProfitFormulaEditor">
+            <Loader2 v-if="profitLoading" class="spin" :size="18" />
+            <Save v-else :size="18" />
+            保存这个公式
+          </button>
+          <button class="secondary-button" type="button" :disabled="profitLoading" @click="resetProfitFormulaEditor">
+            <RotateCcw :size="18" />
+            恢复默认公式
+          </button>
+        </div>
+      </section>
+    </div>
 
     <div v-if="transcriptHistoryOpen" class="modal-backdrop" @click.self="transcriptHistoryOpen = false">
       <section class="transcript-history-modal" role="dialog" aria-modal="true" aria-label="最近提取记录">

@@ -1833,6 +1833,16 @@ h1 {
   text-align: right;
 }
 
+.formula-label {
+  border-bottom: 1px dashed rgba(37, 99, 235, 0.38);
+  cursor: zoom-in;
+  width: max-content;
+}
+
+.formula-label:hover {
+  color: #2563eb;
+}
+
 .profit-config-panel {
   margin-top: 18px;
 }
@@ -1892,6 +1902,81 @@ h1 {
 
 .profit-config-actions {
   justify-content: flex-start;
+}
+
+.profit-formula-modal {
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22);
+  display: grid;
+  gap: 14px;
+  max-height: min(760px, calc(100vh - 48px));
+  max-width: 820px;
+  overflow: auto;
+  padding: 16px;
+  width: min(820px, 100%);
+}
+
+.profit-formula-hint {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.55;
+  margin: 0;
+  padding: 11px 12px;
+}
+
+.profit-formula-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.profit-formula-editor span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.profit-formula-editor textarea {
+  background: #f8fbff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  font: 850 15px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  outline: none;
+  padding: 12px;
+  resize: vertical;
+}
+
+.profit-formula-editor textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.profit-formula-preview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.profit-formula-preview span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.profit-formula-preview strong {
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 950;
 }
 
 @media (max-width: 700px) {
