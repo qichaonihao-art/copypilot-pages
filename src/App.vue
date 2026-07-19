@@ -4019,6 +4019,7 @@ onUnmounted(() => {
                 <h2>调价和 ROI 调整后的变化</h2>
               </div>
             </div>
+            <div class="profit-results-upper">
             <div class="profit-summary-grid">
               <article>
                 <span>客单价提升</span>
@@ -4101,6 +4102,7 @@ onUnmounted(() => {
                 <p><span class="formula-label" :title="profitFormulaTitle('platformFee')" @dblclick="openProfitFormulaEditor('platformFee')">平台服务费</span><strong>{{ formatMoney(profitAdjusted.values.platformFee) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('productCostTotal')" @dblclick="openProfitFormulaEditor('productCostTotal')">货款成本</span><strong>{{ formatMoney(profitAdjusted.values.productCostTotal) }}</strong></p>
               </article>
+            </div>
             </div>
 
             <div class="profit-detail-table">

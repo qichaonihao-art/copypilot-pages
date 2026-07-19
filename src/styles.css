@@ -1750,6 +1750,13 @@ h1 {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+.profit-results-upper {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.12fr) minmax(250px, 0.88fr);
+}
+
 .profit-summary-grid article {
   background: linear-gradient(135deg, #eff6ff, #ecfdf5);
   border: 1px solid #c7d2fe;
@@ -1782,8 +1789,8 @@ h1 {
 .profit-compare {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 18px;
+  grid-template-columns: 1fr;
+  margin-top: 0;
 }
 
 .profit-compare article {
@@ -2168,6 +2175,7 @@ h1 {
   .profit-form-grid,
   .profit-price-grid,
   .profit-summary-grid,
+  .profit-results-upper,
   .profit-compare,
   .profit-formula-grid {
     grid-template-columns: 1fr;
