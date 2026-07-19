@@ -1761,8 +1761,9 @@ h1 {
   background: linear-gradient(135deg, #eff6ff, #ecfdf5);
   border: 1px solid #c7d2fe;
   border-radius: 12px;
+  container-type: inline-size;
   min-width: 0;
-  padding: 18px 14px;
+  padding: 16px 12px;
 }
 
 .profit-summary-grid span,
@@ -1776,12 +1777,13 @@ h1 {
 .profit-summary-grid strong {
   color: #0f172a;
   display: block;
-  font-size: clamp(20px, 2.2vw, 30px);
+  font-size: clamp(18px, 12cqw, 30px);
   letter-spacing: 0;
   line-height: 1.1;
   margin-top: 8px;
-  max-width: none;
-  overflow: visible;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1823,6 +1825,20 @@ h1 {
 
 .profit-compare p:first-of-type {
   border-top: 0;
+}
+
+.profit-compare p.profit-per-order-row {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  color: #047857;
+  margin: 5px -5px;
+  padding: 9px 10px;
+}
+
+.profit-compare p.profit-per-order-row span,
+.profit-compare p.profit-per-order-row strong {
+  color: #047857;
 }
 
 .profit-compare strong {

@@ -4068,7 +4068,7 @@ onUnmounted(() => {
                 </p>
                 <p><span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(currentCollectionBreakEvenRoi, 2) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('profit')" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitCurrent.values.profit) }}</strong></p>
-                <p><span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
+                <p class="profit-per-order-row"><span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitCurrent.values.profitPerOrder) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('settledOrders')" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitCurrent.values.settledOrders, 0) }} 单</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('adCost')" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitCurrent.values.adCost) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('shippedOrders')" @dblclick="openProfitFormulaEditor('shippedOrders')">已发货单量</span><strong>{{ formatNumber(profitCurrent.values.shippedOrders, 0) }} 单</strong></p>
@@ -4093,7 +4093,7 @@ onUnmounted(() => {
                 </p>
                 <p><span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(adjustedCollectionBreakEvenRoi, 2) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('profit')" @dblclick="openProfitFormulaEditor('profit')">总利润</span><strong>{{ formatMoney(profitAdjusted.values.profit) }}</strong></p>
-                <p><span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
+                <p class="profit-per-order-row"><span class="formula-label" :title="profitFormulaTitle('profitPerOrder')" @dblclick="openProfitFormulaEditor('profitPerOrder')">下单单均利润</span><strong>{{ formatMoney(profitAdjusted.values.profitPerOrder) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('settledOrders')" @dblclick="openProfitFormulaEditor('settledOrders')">有效成交单量</span><strong>{{ formatNumber(profitAdjusted.values.settledOrders, 0) }} 单</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('adCost')" @dblclick="openProfitFormulaEditor('adCost')">广告费</span><strong>{{ formatMoney(profitAdjusted.values.adCost) }}</strong></p>
                 <p><span class="formula-label" :title="profitFormulaTitle('shippedOrders')" @dblclick="openProfitFormulaEditor('shippedOrders')">已发货单量</span><strong>{{ formatNumber(profitAdjusted.values.shippedOrders, 0) }} 单</strong></p>
