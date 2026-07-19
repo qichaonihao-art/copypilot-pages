@@ -1556,7 +1556,7 @@ h1 {
 
 .profit-page {
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: 1320px;
   padding: 42px 6vw 56px;
 }
 
@@ -1628,7 +1628,7 @@ h1 {
 .profit-layout {
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(360px, 0.82fr) minmax(0, 1.18fr);
 }
 
 .profit-panel {
@@ -1747,14 +1747,14 @@ h1 {
 .profit-summary-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .profit-results-upper {
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 1.12fr) minmax(250px, 0.88fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
 }
 
 .profit-summary-grid article {
@@ -1776,20 +1776,19 @@ h1 {
 .profit-summary-grid strong {
   color: #0f172a;
   display: block;
-  font-size: clamp(24px, 2.8vw, 34px);
+  font-size: clamp(20px, 2.2vw, 30px);
   letter-spacing: 0;
   line-height: 1.1;
   margin-top: 8px;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  word-break: break-word;
+  max-width: none;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .profit-compare {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 0;
 }
 
@@ -1797,12 +1796,13 @@ h1 {
   background: #ffffff;
   border: 1px solid #dbe5f0;
   border-radius: 12px;
-  padding: 16px;
+  min-width: 0;
+  padding: 14px;
 }
 
 .profit-compare h3 {
   color: #0f172a;
-  font-size: 20px;
+  font-size: 17px;
   margin: 0 0 12px;
 }
 
@@ -1812,7 +1812,13 @@ h1 {
   display: flex;
   justify-content: space-between;
   margin: 0;
-  padding: 10px 0;
+  padding: 8px 0;
+}
+
+.profit-compare p span {
+  font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .profit-compare p:first-of-type {
@@ -1824,6 +1830,7 @@ h1 {
   display: inline-grid;
   gap: 4px;
   justify-items: end;
+  font-size: 14px;
   font-weight: 950;
   text-align: right;
 }
