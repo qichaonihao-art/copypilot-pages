@@ -3933,9 +3933,6 @@ onUnmounted(() => {
               <Share2 v-else :size="17" />
               {{ profitShareSaving ? '保存中...' : '共享此套数据' }}
             </button>
-            <button class="secondary-button" type="button" :disabled="profitLoading" @click="loadProfitConfig">
-              {{ profitLoading ? '刷新中...' : '刷新公式' }}
-            </button>
           </div>
         </div>
 
