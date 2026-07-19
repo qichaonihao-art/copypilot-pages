@@ -1795,14 +1795,6 @@ function getProfitValue(resultValue, key) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function breakEvenStatus(actualRoi, breakEvenRoi) {
-  const actual = Number(actualRoi) || 0;
-  const target = Number(breakEvenRoi) || 0;
-  if (target <= 0) return { className: 'danger', text: '无法保本' };
-  if (actual >= target) return { className: 'success', text: `高于保本线 ${formatNumber(actual - target, 2)}` };
-  return { className: 'danger', text: `低于保本线 ${formatNumber(target - actual, 2)}` };
-}
-
 function openProfitFormulaEditor(key) {
   const meta = profitFormulaMeta.find((item) => item.key === key);
   if (!meta) return;
@@ -4063,7 +4055,6 @@ onUnmounted(() => {
                   <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                   <strong>
                     {{ formatNumber(currentBreakEvenRoi, 2) }}
-                    <em :class="breakEvenStatus(profitForm.roi, currentBreakEvenRoi).className">{{ breakEvenStatus(profitForm.roi, currentBreakEvenRoi).text }}</em>
                   </strong>
                 </p>
                 <p><span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(currentCollectionBreakEvenRoi, 2) }}</strong></p>
@@ -4088,7 +4079,6 @@ onUnmounted(() => {
                   <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                   <strong>
                     {{ formatNumber(adjustedBreakEvenRoi, 2) }}
-                    <em :class="breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).className">{{ breakEvenStatus(profitForm.adjustedRoi, adjustedBreakEvenRoi).text }}</em>
                   </strong>
                 </p>
                 <p><span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span><strong>{{ formatNumber(adjustedCollectionBreakEvenRoi, 2) }}</strong></p>
