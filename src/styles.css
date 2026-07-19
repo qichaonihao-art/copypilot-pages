@@ -1642,6 +1642,24 @@ h1 {
   margin-bottom: 18px;
 }
 
+.profit-clear-button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.profit-clear-button:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
 .profit-panel-head span {
   color: #2563eb;
   font-size: 13px;

@@ -705,6 +705,13 @@ function applyProfitShareRecord(record) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function clearProfitForm() {
+  profitForm.value = emptyProfitForm();
+  previousProfitOrderCount = 0;
+  profitMessage.value = '输入数据已清空，可以录入新的一组数据。';
+  profitMessageType.value = 'info';
+}
+
 async function loadProfitShares() {
   profitSharesLoading.value = true;
   profitSharesError.value = '';
@@ -3944,6 +3951,10 @@ onUnmounted(() => {
                 <span>基础参数</span>
                 <h2>按真实经营口径填数</h2>
               </div>
+              <button class="profit-clear-button" type="button" @click="clearProfitForm">
+                <Trash2 :size="16" />
+                清空数据
+              </button>
             </div>
             <div class="profit-form-grid">
               <label>
