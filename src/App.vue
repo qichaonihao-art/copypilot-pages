@@ -649,6 +649,14 @@ const currentBreakEvenRoi = computed(() => getProfitValue(profitCurrent.value, '
 const adjustedBreakEvenRoi = computed(() => getProfitValue(profitAdjusted.value, 'breakEvenRoi'));
 const currentCollectionBreakEvenRoi = computed(() => getProfitValue(profitCurrent.value, 'collectionBreakEvenRoi'));
 const adjustedCollectionBreakEvenRoi = computed(() => getProfitValue(profitAdjusted.value, 'collectionBreakEvenRoi'));
+const currentSettlementProfitRate = computed(() => {
+  const settledGmv = getProfitValue(profitCurrent.value, 'settledGmv');
+  return settledGmv > 0 ? getProfitValue(profitCurrent.value, 'profit') / settledGmv : 0;
+});
+const adjustedSettlementProfitRate = computed(() => {
+  const settledGmv = getProfitValue(profitAdjusted.value, 'settledGmv');
+  return settledGmv > 0 ? getProfitValue(profitAdjusted.value, 'profit') / settledGmv : 0;
+});
 const activeProfitFormulaMeta = computed(() => profitFormulaMeta.find((item) => item.key === profitFormulaEditorKey.value) || null);
 const totalReturnRatePercent = computed(() => {
   const preShip = Number(profitForm.value.preShipReturnRatePercent) || 0;
@@ -4040,6 +4048,10 @@ onUnmounted(() => {
               <article>
                 <span class="formula-label" :title="profitFormulaTitle('collectionBreakEvenRoi')" @dblclick="openProfitFormulaEditor('collectionBreakEvenRoi')">回款口径保本 ROI</span>
                 <strong>{{ formatNumber(currentCollectionBreakEvenRoi, 2) }}</strong>
+              </article>
+              <article class="profit-settlement-margin-card">
+                <span title="总利润 ÷ 有效成交GMV，分别展示当前方案和调整后方案的最终回款利润率。">回款利润率（当前 / 调整后）</span>
+                <strong>{{ formatPercent(currentSettlementProfitRate) }} / {{ formatPercent(adjustedSettlementProfitRate) }}</strong>
               </article>
             </div>
 

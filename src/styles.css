@@ -1785,6 +1785,16 @@ h1 {
   white-space: nowrap;
 }
 
+.profit-settlement-margin-card {
+  background: linear-gradient(135deg, #f0fdf4, #ecfeff) !important;
+  border-color: #a7f3d0 !important;
+}
+
+.profit-settlement-margin-card strong {
+  color: #047857;
+  font-size: clamp(15px, 7.5cqw, 24px);
+}
+
 .profit-compare {
   display: grid;
   gap: 14px;
