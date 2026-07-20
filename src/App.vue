@@ -662,6 +662,7 @@ const adjustedSettlementProfitRate = computed(() => {
   const settledGmv = getProfitValue(profitAdjusted.value, 'settledGmv');
   return settledGmv > 0 ? getProfitValue(profitAdjusted.value, 'profit') / settledGmv : 0;
 });
+const visibleProfitFormulaMeta = computed(() => profitFormulaMeta.filter((item) => item.key !== 'actualGrossMarginRate'));
 const activeProfitFormulaMeta = computed(() => profitFormulaMeta.find((item) => item.key === profitFormulaEditorKey.value) || null);
 const totalReturnRatePercent = computed(() => {
   const preShip = Number(profitForm.value.preShipReturnRatePercent) || 0;
@@ -4043,10 +4044,6 @@ onUnmounted(() => {
                 <strong>{{ formatMoney(profitDelta.profit) }}</strong>
               </article>
               <article>
-                <span class="formula-label" :title="profitFormulaTitle('actualGrossMarginRate')" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">当前实际毛利率</span>
-                <strong>{{ formatPercent(profitCurrent.values.actualGrossMarginRate) }}</strong>
-              </article>
-              <article>
                 <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                 <strong>{{ formatNumber(currentBreakEvenRoi, 2) }}</strong>
               </article>
@@ -4064,10 +4061,6 @@ onUnmounted(() => {
               <article>
                 <h3>当前</h3>
                 <p><span>客单价 / ROI</span><strong>{{ formatMoney(profitCurrentPrice) }} / {{ formatNumber(profitForm.roi, 2) }}</strong></p>
-                <p>
-                  <span class="formula-label" :title="profitFormulaTitle('actualGrossMarginRate')" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">实际毛利率</span>
-                  <strong>{{ formatPercent(profitCurrent.values.actualGrossMarginRate) }}</strong>
-                </p>
                 <p>
                   <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                   <strong>
@@ -4088,10 +4081,6 @@ onUnmounted(() => {
               <article>
                 <h3>调整后</h3>
                 <p><span>客单价 / ROI</span><strong>{{ formatMoney(profitAdjustedPrice) }} / {{ formatNumber(profitForm.adjustedRoi, 2) }}</strong></p>
-                <p>
-                  <span class="formula-label" :title="profitFormulaTitle('actualGrossMarginRate')" @dblclick="openProfitFormulaEditor('actualGrossMarginRate')">实际毛利率</span>
-                  <strong>{{ formatPercent(profitAdjusted.values.actualGrossMarginRate) }}</strong>
-                </p>
                 <p>
                   <span class="formula-label" :title="profitFormulaTitle('breakEvenRoi')" @dblclick="openProfitFormulaEditor('breakEvenRoi')">广告口径保本 ROI</span>
                   <strong>
@@ -4118,7 +4107,7 @@ onUnmounted(() => {
                 <span>当前</span>
                 <span>调整后</span>
               </div>
-              <div v-for="meta in profitFormulaMeta" :key="meta.key">
+              <div v-for="meta in visibleProfitFormulaMeta" :key="meta.key">
                 <span class="formula-label" :title="profitFormulaTitle(meta.key)" @dblclick="openProfitFormulaEditor(meta.key)">{{ meta.label }}</span>
                 <span>{{ formatProfitMetric(meta.key, profitCurrent.values[meta.key]) }}</span>
                 <span>{{ formatProfitMetric(meta.key, profitAdjusted.values[meta.key]) }}</span>
