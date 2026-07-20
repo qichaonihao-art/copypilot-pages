@@ -177,10 +177,15 @@ function loadProfitForm() {
     if (!raw) return defaults;
     const saved = JSON.parse(raw);
     if (!saved || typeof saved !== 'object') return defaults;
-    return {
+    const form = {
       ...defaults,
       ...Object.fromEntries(Object.keys(defaults).map((key) => [key, saved[key] ?? '']))
     };
+    // 空白表单不把历史保存的 0 当作有效 GMV 展示。
+    for (const key of ['currentGrossGmv', 'adjustedGrossGmv']) {
+      if (form[key] === 0 || form[key] === '0') form[key] = '';
+    }
+    return form;
   } catch {
     return defaults;
   }
