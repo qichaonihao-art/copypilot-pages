@@ -3344,7 +3344,7 @@ function formatSharedSavedTime(timestamp) {
   const date = new Date(timestamp || Date.now());
   if (Number.isNaN(date.getTime())) return '保存时间未知';
   const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:00`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function normalizeTranscriptStage(stage) {
