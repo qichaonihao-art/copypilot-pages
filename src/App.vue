@@ -3285,6 +3285,13 @@ function formatHistoryTime(timestamp) {
   });
 }
 
+function formatSharedSavedTime(timestamp) {
+  const date = new Date(timestamp || Date.now());
+  if (Number.isNaN(date.getTime())) return '保存时间未知';
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:00`;
+}
+
 function normalizeTranscriptStage(stage) {
   const value = String(stage || '').trim();
   if (value === 'asr-fallback' || value === 'delta') return 'asr';
@@ -4181,6 +4188,7 @@ onUnmounted(() => {
             </button>
             <div class="shared-card-body">
               <strong>{{ item.title }}</strong>
+              <span class="shared-card-time">保存于 {{ formatSharedSavedTime(item.createdAt) }}</span>
               <div class="shared-card-actions">
                 <button type="button" class="secondary-button" @click="navigate(`/share/${item.id}`)">打开查看</button>
                 <button

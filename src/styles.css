@@ -1513,6 +1513,12 @@ h1 {
   -webkit-line-clamp: 2;
 }
 
+.shared-card-time {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .shared-card-actions {
   align-items: stretch;
   display: flex;
