@@ -3106,6 +3106,13 @@ async function copyText(value, options = {}) {
   });
 }
 
+async function copySharedSourceUrl() {
+  const sourceUrl = currentSharedRecord.value?.sourceUrl || result.value?.sourceUrl || '';
+  if (!sourceUrl) return;
+  await copyText(sourceUrl);
+  sharedMessage.value = '视频原链接已复制。';
+}
+
 async function copyArticleHtml() {
   if (!articleCopyHtml.value) return;
   const plainText = stripHtml(articleCopyHtml.value);
@@ -4232,7 +4239,7 @@ onUnmounted(() => {
               class="secondary-button"
               type="button"
               :disabled="!currentSharedRecord?.sourceUrl"
-              @click="copyText(currentSharedRecord?.sourceUrl || result?.sourceUrl || '')"
+              @click="copySharedSourceUrl"
             >
               复制视频原链接
             </button>
