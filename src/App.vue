@@ -71,6 +71,9 @@ const sharedMessage = ref('');
 const shareLoading = ref(false);
 const shareNameOpen = ref(false);
 const shareNameDraft = ref('');
+const sharedTitleEditId = ref('');
+const sharedTitleDraft = ref('');
+const sharedTitleSaving = ref(false);
 const currentSharedRecord = ref(null);
 const sharedVideoRefreshing = ref(false);
 const sharedVideoRefreshTried = ref(false);
@@ -2807,6 +2810,47 @@ function handleSharedCoverError(item) {
   if (item?.cover) item.cover = '';
 }
 
+function startSharedTitleEdit(item) {
+  if (!item?.id || sharedTitleSaving.value) return;
+  sharedTitleEditId.value = String(item.id);
+  sharedTitleDraft.value = item.title || '';
+}
+
+function cancelSharedTitleEdit() {
+  sharedTitleEditId.value = '';
+  sharedTitleDraft.value = '';
+}
+
+async function saveSharedTitle(item) {
+  const id = String(item?.id || '');
+  if (!id || sharedTitleEditId.value !== id || sharedTitleSaving.value) return;
+  const title = sharedTitleDraft.value.trim();
+  if (!title) {
+    cancelSharedTitleEdit();
+    return;
+  }
+
+  sharedTitleSaving.value = true;
+  try {
+    const response = await fetch(`/api/shared-videos/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'rename', title })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '标题保存失败。');
+    const updatedItem = payload.item || item;
+    sharedVideos.value = sharedVideos.value.map((video) => video.id === id ? { ...video, ...updatedItem } : video);
+    if (currentSharedRecord.value?.id === id) currentSharedRecord.value = payload.record || { ...currentSharedRecord.value, title };
+    sharedMessage.value = '标题已更新。';
+    cancelSharedTitleEdit();
+  } catch (err) {
+    sharedError.value = err.message || '标题保存失败，请稍后重试。';
+  } finally {
+    sharedTitleSaving.value = false;
+  }
+}
+
 function openShareNameDialog() {
   if (!result.value || !videoLinks.value.length) {
     error.value = '请先解析出可预览的视频，再分享给同事。';
@@ -4205,7 +4249,18 @@ onUnmounted(() => {
               </span>
             </button>
             <div class="shared-card-body">
-              <strong>{{ item.title }}</strong>
+              <input
+                v-if="sharedTitleEditId === String(item.id)"
+                v-model="sharedTitleDraft"
+                class="shared-card-title-input"
+                type="text"
+                maxlength="120"
+                autofocus
+                @keydown.enter.prevent="saveSharedTitle(item)"
+                @keydown.esc.prevent="cancelSharedTitleEdit"
+                @blur="saveSharedTitle(item)"
+              />
+              <strong v-else @dblclick.stop="startSharedTitleEdit(item)" title="双击修改标题">{{ item.title }}</strong>
               <span class="shared-card-time">保存于 {{ formatSharedSavedTime(item.createdAt) }}</span>
               <div class="shared-card-actions">
                 <button type="button" class="secondary-button" @click="navigate(`/share/${item.id}`)">打开查看</button>

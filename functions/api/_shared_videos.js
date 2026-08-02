@@ -312,6 +312,27 @@ export async function updateSharedVideoTranscript(env, id, input) {
   return record;
 }
 
+export async function updateSharedVideoTitle(env, id, input) {
+  const kv = getSharedKv(env);
+  if (!kv) throw makeSharedError('CONFIG_KV_MISSING', 'CONFIG_KV 未绑定，无法更新共享视频。', 500);
+  const record = await getSharedVideo(env, id);
+  const title = String(input.title || '').trim().slice(0, 120);
+  if (!title) throw makeSharedError('TITLE_MISSING', '标题不能为空。', 400);
+
+  record.title = title;
+  record.updatedAt = new Date().toISOString();
+
+  const payload = JSON.stringify(record);
+  if (payload.length > MAX_RECORD_BYTES) {
+    throw makeSharedError('SHARED_VIDEO_TOO_LARGE', '共享内容过大，暂时无法更新。', 413);
+  }
+
+  await kv.put(sharedVideoKey(record.id), payload);
+  const index = await readSharedIndex(kv);
+  await writeSharedIndex(kv, index.map((item) => item.id === record.id ? toShareSummary(record) : item));
+  return record;
+}
+
 export async function updateSharedVideoResult(env, id, input) {
   const kv = getSharedKv(env);
   if (!kv) throw makeSharedError('CONFIG_KV_MISSING', 'CONFIG_KV 未绑定，无法更新共享视频。', 500);
