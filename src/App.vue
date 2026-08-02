@@ -2803,6 +2803,10 @@ async function deleteSharedVideoItem(item) {
   }
 }
 
+function handleSharedCoverError(item) {
+  if (item?.cover) item.cover = '';
+}
+
 function openShareNameDialog() {
   if (!result.value || !videoLinks.value.length) {
     error.value = '请先解析出可预览的视频，再分享给同事。';
@@ -4180,7 +4184,14 @@ onUnmounted(() => {
           <article v-for="item in sharedVideos" :key="item.id" class="shared-card" :class="{ unread: isSharedVideoUnread(item.id) }">
             <button type="button" class="shared-card-cover" @click="navigate(`/share/${item.id}`)">
               <span v-if="isSharedVideoUnread(item.id)" class="shared-card-new">未读</span>
-              <img v-if="item.cover" :src="item.cover" :alt="item.title" loading="lazy" referrerpolicy="no-referrer" />
+              <img
+                v-if="item.cover"
+                :src="item.cover"
+                :alt="item.title"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+                @error="handleSharedCoverError(item)"
+              />
               <span v-else class="shared-cover-empty">
                 <FileVideo :size="34" />
                 <em>暂无封面</em>

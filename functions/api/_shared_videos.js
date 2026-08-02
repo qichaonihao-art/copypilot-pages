@@ -327,7 +327,8 @@ export async function updateSharedVideoResult(env, id, input) {
     ...(record.result?.transcript ? { transcript: record.result.transcript, text: record.result.text || record.result.transcript } : {})
   };
   record.title = buildSharedTitle(record);
-  record.cover = record.cover || pickSharedCover(record.result);
+  const refreshedCover = pickSharedCover(record.result);
+  record.cover = refreshedCover || record.cover || '';
   record.updatedAt = now;
 
   const payload = JSON.stringify(record);
