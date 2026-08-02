@@ -4209,7 +4209,14 @@ onUnmounted(() => {
           </p>
           <div class="shared-page-actions">
             <button class="secondary-button" type="button" @click="navigate('/shared')">返回共享池</button>
-            <button class="secondary-button" type="button" @click="copyText(currentShareUrl)">复制当前链接</button>
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="!currentSharedRecord?.sourceUrl"
+              @click="copyText(currentSharedRecord?.sourceUrl || result?.sourceUrl || '')"
+            >
+              复制视频原链接
+            </button>
             <button
               v-if="currentSharedRecord"
               class="secondary-button shared-delete-button"
