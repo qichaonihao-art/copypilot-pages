@@ -32,6 +32,7 @@ const siteName = 'CopyPilot';
 const FREE_TRANSCRIBE_MAX_SECONDS = 5 * 60;
 const SHARED_VIEWED_KEY = 'copypilot-shared-viewed-v1';
 const PROFIT_FORM_STORAGE_KEY = 'copypilot-profit-form-v1';
+const PROFIT_FORM_CLEARED_KEY = 'copypilot-profit-form-cleared-v1';
 const initialPath = window.location.pathname;
 const currentPath = ref(initialPath);
 const lang = ref(initialPath.startsWith('/en/') ? 'en' : localStorage.getItem('copypilot-lang') || 'zh');
@@ -158,15 +159,15 @@ const profitVariableLabels = [
   ['serviceRate', '平台服务费比例，小数']
 ];
 
-function emptyProfitForm() {
+function emptyProfitForm(withDefaultReturnRates = true) {
   return {
     orderCount: '',
     currentGrossGmv: '',
     adjustedGrossGmv: '',
     roi: '',
     adjustedRoi: '',
-    preShipReturnRatePercent: '',
-    postShipReturnRatePercent: '',
+    preShipReturnRatePercent: withDefaultReturnRates ? 7 : '',
+    postShipReturnRatePercent: withDefaultReturnRates ? 4 : '',
     productCost: '',
     shippingInsurance: '',
     platformFeePercent: ''
@@ -176,6 +177,7 @@ function emptyProfitForm() {
 function loadProfitForm() {
   const defaults = emptyProfitForm();
   try {
+    if (localStorage.getItem(PROFIT_FORM_CLEARED_KEY) === '1') return emptyProfitForm(false);
     const raw = localStorage.getItem(PROFIT_FORM_STORAGE_KEY);
     if (!raw) return defaults;
     const saved = JSON.parse(raw);
@@ -184,6 +186,13 @@ function loadProfitForm() {
       ...defaults,
       ...Object.fromEntries(Object.keys(defaults).map((key) => [key, saved[key] ?? '']))
     };
+    // 旧版本没有这两个默认退货率时，按新的常用默认值补齐；用户仍可手动修改。
+    if (form.preShipReturnRatePercent === '' || form.preShipReturnRatePercent === null || form.preShipReturnRatePercent === undefined) {
+      form.preShipReturnRatePercent = 7;
+    }
+    if (form.postShipReturnRatePercent === '' || form.postShipReturnRatePercent === null || form.postShipReturnRatePercent === undefined) {
+      form.postShipReturnRatePercent = 4;
+    }
     // 空白表单不把历史保存的 0 当作有效 GMV 展示。
     for (const key of ['currentGrossGmv', 'adjustedGrossGmv']) {
       if (form[key] === 0 || form[key] === '0') form[key] = '';
@@ -197,6 +206,8 @@ function loadProfitForm() {
 function saveProfitForm() {
   try {
     localStorage.setItem(PROFIT_FORM_STORAGE_KEY, JSON.stringify(profitForm.value));
+    const hasInput = Object.values(profitForm.value).some((value) => value !== '' && value !== null && value !== undefined);
+    if (hasInput) localStorage.removeItem(PROFIT_FORM_CLEARED_KEY);
   } catch {
     // Browser storage may be unavailable in private mode; calculation still works.
   }
@@ -723,8 +734,13 @@ function applyProfitShareRecord(record) {
 }
 
 function clearProfitForm() {
-  profitForm.value = emptyProfitForm();
+  profitForm.value = emptyProfitForm(false);
   previousProfitOrderCount = 0;
+  try {
+    localStorage.setItem(PROFIT_FORM_CLEARED_KEY, '1');
+  } catch {
+    // Browser storage may be unavailable in private mode; the visible form still clears.
+  }
   profitMessage.value = '输入数据已清空，可以录入新的一组数据。';
   profitMessageType.value = 'info';
 }
