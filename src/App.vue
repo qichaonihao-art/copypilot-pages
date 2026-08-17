@@ -924,6 +924,22 @@ const featureCards = computed(() => {
     ];
 });
 
+const homeToolCards = computed(() => (lang.value === 'en'
+  ? [
+      { path: '/video', icon: FileVideo, title: 'Video download', text: 'Extract video previews, download links, captions, and tags.' },
+      { path: '/text', icon: Captions, title: 'Caption & transcript', text: 'Extract captions from links, or transcribe local audio/video.' },
+      { path: '/image-text', icon: Image, title: 'Image & caption', text: 'Extract images, titles, captions, and tags from image posts.' },
+      { path: '/article', icon: FileText, title: 'Article extractor', text: 'Extract titles, body text, and images from articles.' },
+      { path: '/reader', icon: BookOpen, title: 'Douyin image reader', text: 'Paste multiple Douyin image links and read captions as a collection.', badge: 'NEW' }
+    ]
+  : [
+      { path: '/video', icon: FileVideo, title: '提取视频', text: '输入链接，提取视频预览、下载链接、标题、文案和标签。' },
+      { path: '/text', icon: Captions, title: '提取文案', text: '链接提取文案，或上传本地音视频转成文字稿。' },
+      { path: '/image-text', icon: Image, title: '提取图文', text: '提取图文作品的图片、标题、正文和话题标签。' },
+      { path: '/article', icon: FileText, title: '提取文章', text: '提取公众号、知乎、网页文章的正文和图片。' },
+      { path: '/reader', icon: BookOpen, title: '抖音图文阅读', text: '批量粘贴抖音图文链接，连成一篇方便阅读的合集。', badge: '新' }
+    ]));
+
 const steps = computed(() => {
   const editableSteps = siteContent.value?.[lang.value]?.steps;
   if (Array.isArray(editableSteps) && editableSteps.length) return editableSteps;
@@ -4634,6 +4650,27 @@ onUnmounted(() => {
           <span v-for="keyword in activeSeoPage.keywords" :key="keyword">{{ keyword }}</span>
         </div>
         -->
+      </section>
+
+      <section v-if="isHome" class="section home-tools-section">
+        <div class="section-title center">
+          <p class="eyebrow"><Sparkles :size="18" /> {{ lang === 'en' ? 'Tools' : '常用工具' }}</p>
+          <h2>{{ lang === 'en' ? 'Pick a tool to get started' : '选择一个工具开始' }}</h2>
+        </div>
+        <div class="tool-card-grid">
+          <a
+            v-for="card in homeToolCards"
+            :key="card.path"
+            class="tool-card"
+            :href="card.path"
+            @click.prevent="navigate(card.path)"
+          >
+            <em v-if="card.badge" class="tool-card-badge">{{ card.badge }}</em>
+            <component :is="card.icon" :size="26" />
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.text }}</p>
+          </a>
+        </div>
       </section>
 
       <section v-if="loading && extractProgress" id="extract-progress" class="result-section progress-section" aria-live="polite">
