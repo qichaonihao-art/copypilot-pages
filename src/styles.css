@@ -2388,6 +2388,104 @@ h1 {
   white-space: pre-wrap;
 }
 
+/* 抖音图文阅读器 */
+.reader-card {
+  animation: fadeInUp 0.5s ease;
+  background: rgba(255, 252, 247, 0.92);
+  border: 1px solid #eadfce;
+  border-radius: 16px;
+  box-shadow:
+    0 24px 72px rgba(15, 23, 42, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.62) inset;
+  margin: 0 auto;
+  max-width: 780px;
+  padding: 30px;
+}
+
+.reader-chapter {
+  border-top: 1px solid #efe5d4;
+  padding: 26px 0;
+}
+
+.reader-chapter:first-of-type {
+  border-top: 0;
+  padding-top: 8px;
+}
+
+.reader-chapter-head {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.reader-chapter-index {
+  align-items: center;
+  background: var(--theme);
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.reader-chapter-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reader-chapter-meta strong {
+  color: #1f2937;
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.reader-author,
+.reader-count {
+  color: #9a8c76;
+  font-size: 13px;
+}
+
+.reader-cover {
+  border-radius: 12px;
+  display: block;
+  margin: 0 0 18px;
+  max-height: 420px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.reader-text {
+  color: #2b2b2b;
+  font-size: 17px;
+  line-height: 2;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.reader-empty {
+  color: #9a8c76;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .reader-card {
+    padding: 20px 16px;
+  }
+
+  .reader-text {
+    font-size: 16px;
+    line-height: 1.9;
+  }
+}
+
 .article-mode-switch {
   align-items: center;
   background: var(--theme-soft);

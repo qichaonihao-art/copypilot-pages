@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   BadgeCheck,
+  BookOpen,
   Calculator,
   Captions,
   Check,
@@ -103,6 +104,7 @@ const error = ref('');
 const notice = ref('');
 const result = ref(null);
 const extractProgress = ref(null);
+const readerItems = ref([]);
 const authOpen = ref(false);
 const authLoading = ref(false);
 const authEmail = ref('');
@@ -282,6 +284,14 @@ const pageMap = {
     type: 'article',
     theme: 'green',
     seoTitle: '公众号文章二创排版工具 - AI 改写并复制公众号格式'
+  },
+  '/reader': {
+    badge: '抖音图文阅读',
+    title: '抖音图文阅读器',
+    subtitle: '粘贴多个抖音图文链接，自动提取配文，连成一篇方便阅读的合集。',
+    type: 'reader',
+    theme: 'amber',
+    seoTitle: '抖音图文阅读器 - 批量提取图文文案阅读'
   },
   '/xiaohongshu': {
     badge: '提取文案',
@@ -512,6 +522,7 @@ const enPageMap = {
   '/article': { badge: 'Article extractor', title: 'Article Extraction Tool', subtitle: 'Extract article titles, body text, original images, and basic metadata from article links.' },
   '/wechat-article': { badge: 'WeChat article extractor', title: 'WeChat Article Extractor', subtitle: 'Paste a WeChat article link to extract title, body text, original images, and metadata.' },
   '/article-studio': { badge: 'WeChat article studio', title: 'WeChat Article Rewrite Studio', subtitle: 'Extract, rewrite, format, edit, and copy WeChat-ready article layouts.' },
+  '/reader': { badge: 'Douyin image-post reader', title: 'Douyin Image-Post Reader', subtitle: 'Paste multiple Douyin image-post links to extract captions into a readable collection.' },
   '/douyin-video-download': { badge: 'Douyin video download', title: 'Douyin Video Downloader', subtitle: 'Extract Douyin video previews, download links, titles, captions, and hashtags.' },
   '/tiktok-video-download': { badge: 'TikTok video download', title: 'TikTok Video Downloader', subtitle: 'Extract TikTok videos, captions, post text, and tags for content workflows.' },
   '/kuaishou-video-download': { badge: 'Kuaishou video download', title: 'Kuaishou Video Downloader', subtitle: 'Extract Kuaishou videos, titles, captions, and hashtags from shared links.' },
@@ -974,7 +985,8 @@ const seoToolGroups = computed(() => lang.value === 'en'
         ['/xiaohongshu-image-download', 'Xiaohongshu image extractor'],
         ['/instagram-image-download', 'Instagram image extractor'],
         ['/lemon8-image-download', 'Lemon8 image extractor'],
-        ['/weibo-image-download', 'Weibo image extractor']
+        ['/weibo-image-download', 'Weibo image extractor'],
+        ['/reader', 'Douyin image-post reader']
       ] },
       { title: 'Article platforms', links: [
         ['/wechat-article', 'WeChat article extractor'],
@@ -1003,7 +1015,8 @@ const seoToolGroups = computed(() => lang.value === 'en'
         ['/xiaohongshu-image-download', '小红书图文提取'],
         ['/instagram-image-download', 'Instagram 图文提取'],
         ['/lemon8-image-download', 'Lemon8 图文提取'],
-        ['/weibo-image-download', '微博图文提取']
+        ['/weibo-image-download', '微博图文提取'],
+        ['/reader', '抖音图文阅读']
       ] },
       { title: '文章平台', links: [
         ['/wechat-article', '公众号文章提取'],
@@ -1298,6 +1311,13 @@ const articleHtml = computed(() => {
 });
 
 const hasResultContent = computed(() => result.value || videoLinks.value.length || imageLinks.value.length);
+const readerAllText = computed(() =>
+  readerItems.value
+    .map((item) => (item.title ? `${item.title}\n` : '') + (item.text || ''))
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .join('\n\n———\n\n')
+);
 const shouldShowVideoResult = computed(() => videoLinks.value.length && (isShareDetailPage.value || isHome.value || ['video', 'text'].includes(toolPage.value?.type)));
 const shouldShowImageResult = computed(() => {
   if (result.value?.platform === 'wechat_channels') return false;
@@ -2245,7 +2265,120 @@ function setExtractProgress(detail, percent, title = uiText.value.progressTitle)
   };
 }
 
+function parseReaderUrls(value) {
+  const lines = String(value || '').split(/[\n\r]+/);
+  const urls = [];
+  const seen = new Set();
+  for (const line of lines) {
+    for (const part of line.split(/[，,;\s]+/)) {
+      const clean = extractUrl(part);
+      if (clean && !seen.has(clean)) {
+        seen.add(clean);
+        urls.push(clean);
+      }
+    }
+    if (urls.length >= 10) break;
+  }
+  return urls;
+}
+
+function buildReaderItem(item) {
+  const data = item?.data || {};
+  const detail = findPrimaryDetail(data) || data.aweme_detail || data.itemInfo?.itemStruct || data.note || data;
+  const text = String(
+    item?.text || data.text || data.desc || data.caption || data.aweme_detail?.desc || data.itemInfo?.itemStruct?.desc || data.note?.desc || ''
+  ).trim();
+  const author = String(
+    data.author || data.authorInfo?.nickname || detail.author?.nickname || detail.authorInfo?.nickname || detail.user?.nickname || detail.user?.userName || data.nickname || ''
+  ).trim();
+  const cover = normalizeMediaUrl(
+    detail.cover?.url_list?.[0] || pickImageUrl(detail.cover) || detail.cover_url || data.cover || data.cover_url || ''
+  );
+  const images = [cover, ...findImageUrlsDeep(detail)]
+    .map(normalizeMediaUrl)
+    .filter(Boolean);
+  const detailTags = [
+    ...toArray(detail.tagList),
+    ...toArray(detail.tags),
+    ...toArray(detail.hashtags),
+    ...toArray(data.tags),
+    ...toArray(data.hashtags),
+    ...toArray(data.keywords)
+  ]
+    .map(readTagName)
+    .filter(Boolean)
+    .map((tag) => `#${cleanTopicName(tag)}`)
+    .filter(Boolean);
+  const textTags = text ? [...text.matchAll(/#[^\s#，,。；;]+/g)].map((match) => `#${cleanTopicName(match[0])}`) : [];
+  return {
+    ok: Boolean(item?.ok),
+    url: item?.url || '',
+    title: cleanTitle(item?.title) || makeTitleFromDescription(text) || '',
+    text,
+    author,
+    cover,
+    images: [...new Set(images)].slice(0, 12),
+    tags: [...new Set([...detailTags, ...textTags])],
+    error: item?.message || ''
+  };
+}
+
+async function extractReader() {
+  error.value = '';
+  notice.value = '';
+  result.value = null;
+  readerItems.value = [];
+  extractProgress.value = null;
+
+  const urls = parseReaderUrls(url.value);
+  if (!urls.length) {
+    error.value = '请粘贴至少一个抖音图文链接（每行一个）。';
+    return;
+  }
+
+  trackEvent('extract_start', { inputType: 'batch', platform: 'douyin', targetType: 'reader', count: urls.length });
+  loading.value = true;
+  try {
+    setExtractProgress('正在批量提取图文文案...', 30);
+    const response = await fetch('/api/batch-extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || '批量提取失败');
+    readerItems.value = (payload.results || []).map(buildReaderItem);
+    const okCount = readerItems.value.filter((item) => item.text).length;
+    notice.value = `已提取 ${okCount}/${readerItems.value.length} 篇图文文案，可整篇阅读或复制全文。`;
+    trackEvent('extract_success', {
+      inputType: 'batch',
+      platform: 'douyin',
+      targetType: 'reader',
+      ok: okCount,
+      total: readerItems.value.length
+    });
+  } catch (err) {
+    error.value = err.message === 'Failed to fetch'
+      ? '接口请求失败或超时，请稍后重试。'
+      : err.message || '批量提取失败，请稍后重试。';
+    trackEvent('extract_failed', {
+      inputType: 'batch',
+      platform: 'douyin',
+      targetType: 'reader',
+      reason: String(error.value || '').slice(0, 90)
+    });
+  } finally {
+    loading.value = false;
+    extractProgress.value = null;
+  }
+}
+
 async function extract() {
+  if (toolPage.value?.type === 'reader') {
+    await extractReader();
+    return;
+  }
+
   error.value = '';
   notice.value = '';
   result.value = null;
@@ -3550,6 +3683,7 @@ function resetResult() {
   error.value = '';
   notice.value = '';
   result.value = null;
+  readerItems.value = [];
   sharedMessage.value = '';
   if (!isShareDetailPage.value) currentSharedRecord.value = null;
   articleView.value = 'text';
@@ -4353,7 +4487,9 @@ onUnmounted(() => {
                   ? Captions
                   : toolPage?.type === 'media-file'
                     ? FileAudio
-                    : FileVideo
+                    : toolPage?.type === 'reader'
+                      ? BookOpen
+                      : FileVideo
             "
             :size="18"
           />
@@ -4377,10 +4513,12 @@ onUnmounted(() => {
           <textarea
             v-model="url"
             ref="urlInput"
-            rows="1"
+            :rows="toolPage?.type === 'reader' ? 5 : 1"
             :placeholder="
               isHome
                 ? uiText.placeholders.auto
+                : toolPage?.type === 'reader'
+                ? '每行粘贴一个抖音图文链接，可一次粘贴多个'
                 : toolPage?.type === 'video'
                 ? uiText.placeholders.video
                 : toolPage?.type === 'image'
@@ -4394,8 +4532,9 @@ onUnmounted(() => {
           <div class="button-row">
             <button class="primary-button" :disabled="loading" @click="extract">
               <Loader2 v-if="loading" class="spin" :size="18" />
+              <BookOpen v-else-if="toolPage?.type === 'reader'" :size="18" />
               <Link v-else :size="18" />
-              {{ loading ? uiText.loading : uiText.start }}
+              {{ loading ? uiText.loading : (toolPage?.type === 'reader' ? '开始阅读' : uiText.start) }}
             </button>
             <button class="secondary-button" @click="paste"><Clipboard :size="18" /> {{ uiText.paste }}</button>
             <button class="secondary-button" @click="clearInput">{{ uiText.clear }}</button>
@@ -4708,6 +4847,42 @@ onUnmounted(() => {
               <p class="result-text" style="color: #be123c;">{{ error }}</p>
             </article>
           </div>
+        </div>
+      </section>
+
+      <section v-if="toolPage?.type === 'reader' && readerItems.length" id="reader-result" class="result-section">
+        <div class="reader-card">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">阅读合集</p>
+              <h2>图文文案 · {{ readerItems.length }} 篇</h2>
+            </div>
+            <button class="icon-button" title="复制全文" @click="copyText(readerAllText)"><Copy :size="18" /></button>
+          </div>
+
+          <article v-for="(item, index) in readerItems" :key="item.url || index" class="reader-chapter">
+            <header class="reader-chapter-head">
+              <span class="reader-chapter-index">{{ index + 1 }}</span>
+              <div class="reader-chapter-meta">
+                <strong v-if="item.title">{{ item.title }}</strong>
+                <span v-if="item.author" class="reader-author">{{ item.author }}</span>
+                <span v-if="item.text" class="reader-count">{{ item.text.length }} 字</span>
+              </div>
+            </header>
+            <img
+              v-if="item.cover"
+              class="reader-cover"
+              :src="item.cover"
+              :alt="item.title || '图文封面'"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+            />
+            <p v-if="item.text" class="reader-text">{{ item.text }}</p>
+            <p v-else class="reader-empty">{{ item.error || '未识别到文案' }}</p>
+            <div v-if="item.tags.length" class="tag-list">
+              <button v-for="tag in item.tags" :key="tag" @click="copyText(tag)">{{ tag }}</button>
+            </div>
+          </article>
         </div>
       </section>
 
